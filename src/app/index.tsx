@@ -1,63 +1,165 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
 import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { getExercises } from '@/database/exerciseQueries';
+import { getActiveWorkout, startWorkout } from '@/database/workoutQueries';
+import { Exercise } from '@/types/exercises';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const db = useSQLiteContext();
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [search, setSearch] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [workoutId, setWorkoutId] = useState<string | null>(null);
+  const [isStartingWorkout, setIsStartingWorkout] = useState(false);
+  const [workoutError, setWorkoutError] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    async function loadExercises() {
+      try {
+        const results = await getExercises(db, debouncedSearch);
+
+        if (!cancelled) {
+          setExercises(results);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setError(error instanceof Error ? error.message : 'Unknown error');
+        }
+        console.error('Failed to load exercises:', error);
+      }
+      finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    void loadExercises();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, debouncedSearch]);
+
+  // Function to handle starting a new workout
+  const handleStartWorkout = async () => {
+    setWorkoutError(null);
+    if (workoutId !== null || isStartingWorkout) {
+      return;
+    }
+    try {
+      setIsStartingWorkout(true);
+      const workout = await startWorkout(db);
+      setWorkoutId(workout);
+    } catch (error) {
+      console.error('Failed to start workout:', error);
+      setWorkoutError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setIsStartingWorkout(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkActiveWorkout() {
+      try {
+        const activeWorkout = await getActiveWorkout(db);
+        if (activeWorkout && !cancelled) {
+          setWorkoutId(activeWorkout.id);
+        }
+      } catch (error) {
+        console.error('Failed to check active workout:', error);
+      }
+    }
+    void checkActiveWorkout();
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
+
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Update debouncedSearch here
+      setDebouncedSearch(search);
+    }, 700);
+
+    return () => {
+      // Clear the previous timer here
+      clearTimeout(timer);
+    };
+  }, [search]);
+
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        <View style={styles.heroSection}>
+          <Text style={styles.title}>
+            Fitness App
+          </Text>
+          <Text style={styles.subtitle}>
+            Welcome back
+          </Text>
+          {workoutId == null ? (
+            <Text style={styles.subtitle}>
+              No workout active
+            </Text>
+          ) : (
+            <Text style={styles.subtitle}>
+              Workout in progress
+            </Text>
+          )}
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        </View>
+        <View style={{ flex: 1, width: '100%' }}>
+          {loading && <ActivityIndicator size="large" />}
+          {error && <Text style={{ color: 'red' }}>{error}</Text>}
+          <TextInput
+            placeholder="Search exercises..."
+            value={search}
+            onChangeText={setSearch}
+            style={styles.searchInput}
+          />
+          <FlatList
+            data={exercises}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <Text style={styles.subtitle}>{item.name}</Text>
+            )}
+          />
+        </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
+        <View>
+          {workoutError && <Text style={{ color: 'red' }}>{workoutError}</Text>}
+          <Pressable
+            style={styles.startworkoutbutton}
+            onPress={handleStartWorkout}
+            disabled={workoutId !== null || isStartingWorkout}
+          >
+            <Text style={[styles.code, { color: 'white' }]}>[Start Workout]</Text>
+          </Pressable>
+        </View>
+        <View style={styles.stepContainer}>
           <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+            title="WHOOP"
+            hint={<ThemedText type="code">Not connected</ThemedText>}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        </View>
 
         {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      </SafeAreaView >
+    </View >
   );
 }
 
@@ -66,6 +168,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  searchInput: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: '#333',
+    color: 'white',
+    borderRadius: 8,
   },
   safeArea: {
     flex: 1,
@@ -83,7 +192,14 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   title: {
+    fontSize: 34,
     textAlign: 'center',
+    color: 'white',
+  },
+  subtitle: {
+    fontSize: 24,
+    textAlign: 'center',
+    color: 'white',
   },
   code: {
     textTransform: 'uppercase',
@@ -94,5 +210,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
+  },
+  startworkoutbutton: {
+    backgroundColor: 'grey',
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    alignItems: 'center',
   },
 });
