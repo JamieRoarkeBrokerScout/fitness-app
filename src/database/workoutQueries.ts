@@ -1,3 +1,4 @@
+import { Exercise } from '@/types/exercises';
 import { Workouts } from '@/types/workouts';
 import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -26,9 +27,29 @@ export async function getActiveWorkout(
     return activeWorkout;
 }
 
+// Function to add an exercise to a specific workout.
 export async function addExerciseToWorkout(
-    db: SQLiteDatabase
+    db: SQLiteDatabase,
+    workoutId: string,
+    exerciseId: string,
 ) {
-
+    const id: string = Crypto.randomUUID();
+    await db.runAsync(
+        'INSERT INTO workout_exercises (id, workout_id, exercise_id) VALUES (?, ?, ?)',
+        [id, workoutId, exerciseId]
+    );
+    return id;
 }
 
+
+// Function to get workout exercises
+export async function getWorkoutExercises(
+    db: SQLiteDatabase,
+    workoutId: string,
+) {
+    const exercises = await db.getAllAsync<Exercise>(
+        'SELECT exercises.* FROM workout_exercises JOIN exercises ON workout_exercises.exercise_id = exercises.id  WHERE workout_exercises.workout_id = ?',
+        [workoutId]
+    );
+    return exercises;
+}

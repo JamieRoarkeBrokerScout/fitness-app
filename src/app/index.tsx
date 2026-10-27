@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { getExercises } from '@/database/exerciseQueries';
-import { getActiveWorkout, startWorkout } from '@/database/workoutQueries';
+import { addExerciseToWorkout, getActiveWorkout, getWorkoutExercises, startWorkout } from '@/database/workoutQueries';
 import { Exercise } from '@/types/exercises';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
@@ -21,6 +21,21 @@ export default function HomeScreen() {
   const [isStartingWorkout, setIsStartingWorkout] = useState(false);
   const [workoutError, setWorkoutError] = useState<string | null>(null);
 
+  const [workoutExercises, setWorkoutExercises] = useState<Exercise[]>([]);
+
+  const loadWorkoutExercises = async (workoutId: string) => {
+    if (!workoutId) {
+      setWorkoutError('No active workout');
+      return;
+    }
+    try {
+      const exercises = await getWorkoutExercises(db, workoutId);
+      setWorkoutExercises(exercises);
+    } catch (error) {
+      console.error('Failed to get workout exercises:', error);
+      setWorkoutError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +76,7 @@ export default function HomeScreen() {
       setIsStartingWorkout(true);
       const workout = await startWorkout(db);
       setWorkoutId(workout);
+      await loadWorkoutExercises(workout);
     } catch (error) {
       console.error('Failed to start workout:', error);
       setWorkoutError(error instanceof Error ? error.message : 'Unknown error');
@@ -77,6 +93,8 @@ export default function HomeScreen() {
         if (activeWorkout && !cancelled) {
           setWorkoutId(activeWorkout.id);
         }
+        const workoutId = activeWorkout?.id;
+        await loadWorkoutExercises(workoutId ?? '');
       } catch (error) {
         console.error('Failed to check active workout:', error);
       }
@@ -100,6 +118,21 @@ export default function HomeScreen() {
       clearTimeout(timer);
     };
   }, [search]);
+
+  const handleAddExerciseToWorkout = async (exerciseId: string) => {
+    if (!workoutId) {
+      setWorkoutError('No active workout');
+      return;
+    }
+    try {
+      await addExerciseToWorkout(db, workoutId, exerciseId);
+      await loadWorkoutExercises(workoutId);
+    } catch (error) {
+      console.error('Failed to add exercise to workout:', error);
+      setWorkoutError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -135,7 +168,10 @@ export default function HomeScreen() {
             data={exercises}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <Text style={styles.subtitle}>{item.name}</Text>
+              <Text
+                style={styles.subtitle}
+                onPress={() => handleAddExerciseToWorkout(item.id)}
+              >{item.name}</Text>
             )}
           />
         </View>
