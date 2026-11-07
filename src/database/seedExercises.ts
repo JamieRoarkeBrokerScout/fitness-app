@@ -4,6 +4,11 @@ import exercises from '../../assets/data/exercises.json';
 // seed the database with exercises from the JSON file
 // wrapped in a transaction to ensure atomicity
 export async function seedExercises(db: SQLiteDatabase) {
+    // skip the 1,300-row insert on every launch once the library is in place
+    const existing = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM exercises');
+    if ((existing?.count ?? 0) >= exercises.length) {
+        return;
+    }
     await db.withTransactionAsync(async () => {
         for (const exercise of exercises) {
             await db.runAsync(
