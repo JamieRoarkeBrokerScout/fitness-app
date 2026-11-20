@@ -1,7 +1,7 @@
 import { LineChart } from '@/components/ui/charts';
 import { AppText, Button, Divider, EmptyState, Icons, Panel, SectionHeader, Segmented, Stat } from '@/components/ui/primitives';
 import { Screen } from '@/components/ui/screen';
-import { Radius, Spacing } from '@/constants/theme';
+import { Layout, Radius, Spacing } from '@/constants/theme';
 import { addPhoto, deleteMeasurement, getMeasurements, getPhotos } from '@/database/bodyQueries';
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useSettings } from '@/hooks/use-settings';
@@ -89,7 +89,7 @@ export default function BodyScreen() {
     }
   };
 
-  const tile = (Math.min(width, 800) - Spacing.three * 2 - Spacing.two * 2) / 3;
+  const tile = (Math.min(width, 800) - Layout.gutter * 2 - Spacing.two * 2) / 3;
 
   return (
     <Screen title="Body" onRefresh={reload}>
@@ -109,7 +109,7 @@ export default function BodyScreen() {
       </View>
 
       {hasTrend && (
-        <Panel style={{ gap: Spacing.two }}>
+        <Panel style={{ gap: 12 }}>
           <AppText variant="caption" color="textSecondary">Last 90 days</AppText>
           <LineChart values={trend} labels={trendLabels} color={theme.text} format={(value) => formatNumber(value)} />
         </Panel>
@@ -145,8 +145,8 @@ export default function BodyScreen() {
         onChange={setPose}
       />
       <View style={styles.row}>
-        <Button kind="secondary" label="Take photo" icon={Icons.camera} onPress={() => addFrom('camera')} loading={saving} style={styles.flex} />
-        <Button kind="secondary" label="Library" icon={Icons.photo} onPress={() => addFrom('library')} disabled={saving} style={styles.flex} />
+        <Button kind="secondary" label="Take photo" icon={Icons.camera} onPress={() => addFrom('camera')} loading={saving} style={styles.photoButton} />
+        <Button kind="secondary" label="Library" icon={Icons.photo} onPress={() => addFrom('library')} disabled={saving} style={styles.photoButton} />
       </View>
 
       {photos.length === 0 ? (
@@ -236,10 +236,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.three,
   },
+  photoButton: {
+    flex: 1,
+    paddingHorizontal: Spacing.two,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: Spacing.three,
+    rowGap: Spacing.four - 4,
   },
   gridItem: {
     width: '33.33%',
@@ -247,18 +251,19 @@ const styles = StyleSheet.create({
   photos: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
+    columnGap: Spacing.two,
+    rowGap: Spacing.three,
   },
   photo: {
     borderRadius: Radius.small,
   },
   photoCaption: {
-    marginTop: 4,
+    marginTop: 6,
     textTransform: 'capitalize',
   },
   historyRow: {
     flexDirection: 'row',
     gap: Spacing.two,
-    paddingVertical: Spacing.two + 2,
+    paddingVertical: 14,
   },
 });

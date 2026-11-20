@@ -1,26 +1,20 @@
+import { ActiveWorkoutCard } from '@/components/active-workout-card';
 import { AppText, Button, Divider, EmptyState, Icons, SectionHeader } from '@/components/ui/primitives';
 import { Screen } from '@/components/ui/screen';
 import { WorkoutRow } from '@/components/workout-row';
-import { getActiveWorkout, getWorkoutSummaries, startWorkout } from '@/database/workoutQueries';
+import { getActiveWorkout, getWorkoutSummaries } from '@/database/workoutQueries';
+import { Spacing } from '@/constants/theme';
 import { useFocusQuery } from '@/hooks/use-focus-query';
+import { useWorkoutActions } from '@/hooks/use-workout-actions';
 import { WorkoutSummary } from '@/types/workouts';
-import { router } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 export default function HistoryScreen() {
-  const db = useSQLiteContext();
+  const actions = useWorkoutActions();
   const { data, reload } = useFocusQuery(async (database) => {
     const [active, workouts] = await Promise.all([getActiveWorkout(database), getWorkoutSummaries(database)]);
     return { active, workouts };
   });
-
-  const handleStart = async () => {
-    if (!data?.active) {
-      await startWorkout(db);
-    }
-    router.push('/workout/active');
-  };
 
   // group by month for the logbook feel
   const months: { label: string, workouts: WorkoutSummary[] }[] = [];
@@ -36,11 +30,12 @@ export default function HistoryScreen() {
 
   return (
     <Screen title="Workouts" onRefresh={reload}>
-      <Button
-        label={data?.active ? 'Resume workout' : 'Start workout'}
-        icon={Icons.play}
-        onPress={handleStart}
-      />
+      {data?.active ? (
+        <ActiveWorkoutCard workout={data.active} onChanged={reload} />
+      ) : (
+        <Button label="Start workout" icon={Icons.play} onPress={() => actions.start()} loading={actions.busy} />
+      )}
+      {actions.error && <AppText color="danger">{actions.error}</AppText>}
 
       {data && data.workouts.length === 0 && (
         <EmptyState
@@ -50,7 +45,7 @@ export default function HistoryScreen() {
       )}
 
       {months.map((month) => (
-        <View key={month.label}>
+        <View key={month.label} style={styles.month}>
           <SectionHeader
             title={month.label}
             action={<AppText variant="caption" color="textSecondary">{month.workouts.length} {month.workouts.length === 1 ? 'workout' : 'workouts'}</AppText>}
@@ -66,3 +61,9 @@ export default function HistoryScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  month: {
+    gap: Spacing.one,
+  },
+});

@@ -6,7 +6,8 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, View, StyleSheet } from 'react-native';
+import type { ComponentProps } from 'react';
+import { Pressable, View, StyleSheet, useWindowDimensions } from 'react-native';
 
 import { AppText } from '@/components/ui/primitives';
 import { Display, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -39,7 +40,7 @@ export default function AppTabs() {
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   const theme = useTheme();
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable {...(props as ComponentProps<typeof Pressable>)} style={({ pressed }) => pressed && styles.pressed}>
       <View style={[styles.tabButtonView, { backgroundColor: isFocused ? theme.backgroundSelected : 'transparent' }]}>
         <AppText variant="bodyStrong" color={isFocused ? 'text' : 'textSecondary'}>
           {children}
@@ -51,11 +52,13 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 
 export function CustomTabList(props: TabListProps) {
   const theme = useTheme();
+  // four tabs fill a phone-width bar, so the brand only shows when there's room for it
+  const showBrand = useWindowDimensions().width >= 560;
 
   return (
     <View {...props} style={styles.tabListContainer}>
-      <View style={[styles.innerContainer, { backgroundColor: theme.backgroundElement }]}>
-        <AppText style={[styles.brandText, { fontFamily: Display.bold }]}>Fitness</AppText>
+      <View style={[styles.innerContainer, { backgroundColor: theme.backgroundElement }, !showBrand && styles.innerContainerCompact]}>
+        {showBrand && <AppText style={[styles.brandText, { fontFamily: Display.bold }]}>Fitness</AppText>}
         {props.children}
       </View>
     </View>
@@ -82,6 +85,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
   },
+  innerContainerCompact: {
+    paddingHorizontal: Spacing.one,
+    gap: 0,
+    justifyContent: 'space-between',
+  },
   brandText: {
     marginRight: 'auto',
     fontSize: 20,
@@ -90,8 +98,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   tabButtonView: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: 12,
     borderRadius: Spacing.three,
   },
 });

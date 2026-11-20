@@ -1,5 +1,5 @@
 import { AppText, Button, Field } from '@/components/ui/primitives';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Layout } from '@/constants/theme';
 import { addMeasurement } from '@/database/bodyQueries';
 import { useSettings } from '@/hooks/use-settings';
 import { circumferenceFields } from '@/lib/body-fields';
@@ -91,8 +91,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.three,
-    gap: Spacing.three,
+    paddingHorizontal: Layout.gutter,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.six,
+    gap: Spacing.four - 4,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',

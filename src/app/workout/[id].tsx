@@ -1,11 +1,12 @@
-import { AppText, Button, Divider, Panel, Stat } from '@/components/ui/primitives';
+import { AppText, Button, Divider, Icons, Panel, Stat } from '@/components/ui/primitives';
 import { workoutTitle } from '@/components/workout-row';
-import { Display, MaxContentWidth, Plate, Spacing } from '@/constants/theme';
+import { Display, Layout, MaxContentWidth, Plate, Spacing } from '@/constants/theme';
 import { isCardio } from '@/database/exerciseQueries';
 import { getOverlappingWhoopWorkout } from '@/database/healthQueries';
-import { deleteWorkout, getWorkout, getWorkoutEntries } from '@/database/workoutQueries';
+import { deleteWorkout, getActiveWorkout, getWorkout, getWorkoutEntries } from '@/database/workoutQueries';
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useSettings } from '@/hooks/use-settings';
+import { useWorkoutActions } from '@/hooks/use-workout-actions';
 import { formatHoursMinutes } from '@/lib/dates';
 import { formatNumber, formatVolume, kgToDisplay, weightLabel } from '@/lib/units';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -15,7 +16,8 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 export default function WorkoutDetailScreen() {
   const db = useSQLiteContext();
   const { units } = useSettings();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, finished } = useLocalSearchParams<{ id: string, finished?: string }>();
+  const actions = useWorkoutActions();
 
   const { data } = useFocusQuery(async (database) => {
     const workout = await getWorkout(database, id);
@@ -24,14 +26,16 @@ export default function WorkoutDetailScreen() {
     }
     const entries = await getWorkoutEntries(database, id);
     const whoop = workout.ended_at ? await getOverlappingWhoopWorkout(database, workout.started_at, workout.ended_at) : null;
-    return { workout, entries, whoop };
+    const hasActive = (await getActiveWorkout(database)) !== null;
+    return { workout, entries, whoop, hasActive };
   }, [id]);
 
   if (!data) {
     return <View style={styles.flex} />;
   }
 
-  const { workout, entries, whoop } = data;
+  const { workout, entries, whoop, hasActive } = data;
+  const justFinished = finished === '1';
   const started = new Date(workout.started_at);
   const minutes = workout.ended_at ? (new Date(workout.ended_at).getTime() - started.getTime()) / 60000 : 0;
   const sets = entries.flatMap((entry) => entry.sets);
@@ -55,7 +59,7 @@ export default function WorkoutDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: '' }} />
+      <Stack.Screen options={{ title: justFinished ? 'Workout saved' : '' }} />
       <View>
         <AppText variant="caption" color="textSecondary">
           {started.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })},{' '}
@@ -66,7 +70,7 @@ export default function WorkoutDetailScreen() {
 
       <View style={styles.row}>
         <Stat value={formatHoursMinutes(minutes)} label="duration" />
-        <Stat value={String(sets.length)} label="sets" />
+        <Stat value={String(sets.length)} label={sets.length === 1 ? 'set' : 'sets'} />
         <Stat value={formatVolume(volume, units)} unit={weightLabel(units)} label="volume" />
       </View>
 
@@ -80,6 +84,16 @@ export default function WorkoutDetailScreen() {
             label="burned"
           />
         </Panel>
+      )}
+
+      {justFinished && (
+        <View style={styles.nextSteps}>
+          {!hasActive && (
+            <Button label="Start new workout" icon={Icons.play} onPress={() => actions.start({ replace: true })} loading={actions.busy} />
+          )}
+          <Button kind="secondary" label="Done" onPress={() => router.back()} />
+          {actions.error && <AppText color="danger">{actions.error}</AppText>}
+        </View>
       )}
 
       {workout.notes && <AppText color="textSecondary">{workout.notes}</AppText>}
@@ -101,7 +115,9 @@ export default function WorkoutDetailScreen() {
                 </AppText>
               </View>
             ))}
-            <Divider />
+            <View style={styles.entryDivider}>
+              <Divider />
+            </View>
           </View>
         );
       })}
@@ -116,9 +132,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.three,
+    paddingHorizontal: Layout.gutter,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.six,
-    gap: Spacing.three,
+    gap: Spacing.four,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
@@ -127,8 +144,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.three,
   },
+  nextSteps: {
+    gap: Spacing.two,
+  },
   entry: {
     gap: Spacing.one,
+  },
+  entryDivider: {
+    marginTop: Spacing.three,
   },
   capitalize: {
     textTransform: 'capitalize',
@@ -137,7 +160,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: Spacing.three,
-    paddingVertical: 2,
+    paddingVertical: Spacing.one,
   },
   setNumber: {
     fontFamily: Display.semibold,

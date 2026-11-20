@@ -80,7 +80,6 @@ export default function RootLayout() {
               <Stack.Screen name="body/measure" options={{ title: 'Log measurements', presentation: 'modal' }} />
               <Stack.Screen name="body/photo/[id]" options={{ title: '' }} />
               <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-              <Stack.Screen name="whoop" options={{ headerShown: false, animation: 'none' }} />
             </Stack>
           </ThemeProvider>
         </SettingsProvider>

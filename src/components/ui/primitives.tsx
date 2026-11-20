@@ -1,4 +1,4 @@
-import { Display, Radius, Spacing, ThemeColor } from '@/constants/theme';
+import { Display, Layout, Radius, Spacing, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { SymbolView } from 'expo-symbols';
 import type { AndroidSymbol, SFSymbol } from 'expo-symbols';
@@ -159,6 +159,7 @@ export function Chip({ label, selected, onPress }: { label: string, selected: bo
         <Pressable
             accessibilityRole="button"
             accessibilityState={{ selected }}
+            hitSlop={6}
             onPress={onPress}
             style={[
                 styles.chip,
@@ -242,12 +243,12 @@ export const Icons = {
 const styles = StyleSheet.create({
     panel: {
         borderRadius: Radius.medium,
-        padding: Spacing.three,
+        padding: Layout.panel,
     },
     button: {
         minHeight: 52,
         borderRadius: Radius.medium,
-        paddingHorizontal: Spacing.four,
+        paddingHorizontal: Spacing.three,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -258,8 +259,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     iconButton: {
-        width: 40,
-        height: 40,
+        width: Layout.touch,
+        height: Layout.touch,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     },
     segment: {
         flex: 1,
-        paddingVertical: 7,
+        paddingVertical: 11,
         borderRadius: Radius.small,
         alignItems: 'center',
     },
@@ -281,8 +282,8 @@ const styles = StyleSheet.create({
     chip: {
         borderWidth: 1,
         borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: Spacing.two,
     },
     chipLabel: {
         fontSize: 13,
@@ -290,15 +291,15 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
     field: {
-        gap: Spacing.one,
+        gap: Spacing.two - 2,
         flex: 1,
     },
     fieldBox: {
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: Radius.small,
-        paddingHorizontal: 12,
-        minHeight: 46,
+        paddingHorizontal: 14,
+        minHeight: 48,
         gap: Spacing.two,
     },
     fieldInput: {
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginTop: Spacing.two,
+        marginTop: Layout.section - Layout.block,
     },
     empty: {
         alignItems: 'center',

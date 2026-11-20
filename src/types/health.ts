@@ -14,6 +14,10 @@ export interface WhoopDay {
     sleep_performance_pct: number | null,
     sleep_efficiency_pct: number | null,
     sleep_ms: number | null,
+    step_count: number | null,
+    light_sleep_ms: number | null,
+    deep_sleep_ms: number | null,
+    rem_sleep_ms: number | null,
     respiratory_rate: number | null,
     updated_at: string,
 };

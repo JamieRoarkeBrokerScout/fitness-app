@@ -48,7 +48,7 @@ export function WorkoutRow({ workout }: { workout: WorkoutSummary }) {
                     </AppText>
                 )}
                 <AppText variant="caption" color="textSecondary">
-                    {formatHoursMinutes(minutes)}, {workout.set_count} sets
+                    {formatHoursMinutes(minutes)}, {workout.set_count} {workout.set_count === 1 ? 'set' : 'sets'}
                     {workout.volume_kg > 0 ? `, ${formatVolume(workout.volume_kg, units)} ${weightLabel(units)}` : ''}
                 </AppText>
             </View>
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         gap: Spacing.three,
-        paddingVertical: Spacing.two + 2,
+        paddingVertical: 14,
         alignItems: 'center',
     },
     date: {

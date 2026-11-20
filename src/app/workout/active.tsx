@@ -1,12 +1,11 @@
+import { ElapsedClock } from '@/components/active-workout-card';
 import { AppText, Button, Divider, EmptyState, Icon, IconButton, Icons } from '@/components/ui/primitives';
 import { workoutTitle } from '@/components/workout-row';
-import { Display, MaxContentWidth, Plate, Radius, Spacing } from '@/constants/theme';
+import { Display, Layout, MaxContentWidth, Plate, Radius, Spacing } from '@/constants/theme';
 import { isCardio } from '@/database/exerciseQueries';
 import {
   addSet,
   deleteSet,
-  deleteWorkout,
-  finishWorkout,
   getActiveWorkout,
   getPreviousSets,
   getWorkoutEntries,
@@ -19,6 +18,7 @@ import {
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useSettings } from '@/hooks/use-settings';
 import { useTheme } from '@/hooks/use-theme';
+import { useWorkoutActions } from '@/hooks/use-workout-actions';
 import { formatDuration } from '@/lib/dates';
 import { displayToKg, formatNumber, kgToDisplay, parseDecimal, UnitSystem, weightLabel } from '@/lib/units';
 import { WorkoutExerciseEntry, WorkoutSet } from '@/types/workouts';
@@ -27,7 +27,7 @@ import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_REST_SECONDS = 90;
 
@@ -36,7 +36,7 @@ export default function ActiveWorkoutScreen() {
   const theme = useTheme();
   const { units } = useSettings();
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
-  const [finishing, setFinishing] = useState(false);
+  const actions = useWorkoutActions({ insideActiveScreen: true });
 
   const { data, reload } = useFocusQuery(async (database) => {
     const workout = await getActiveWorkout(database);
@@ -71,63 +71,6 @@ export default function ActiveWorkoutScreen() {
     }
   };
 
-  const handleFinish = () => {
-    if (!workout) {
-      return;
-    }
-    const allSets = entries.flatMap((entry) => entry.sets);
-    const done = allSets.filter((set) => set.completed === 1).length;
-    const unfinished = allSets.length - done;
-
-    if (done === 0) {
-      Alert.alert('No sets ticked off', 'Tick off the sets you did before finishing, or discard this workout.', [
-        { text: 'Keep going', style: 'cancel' },
-        { text: 'Discard workout', style: 'destructive', onPress: handleDiscardConfirmed },
-      ]);
-      return;
-    }
-
-    const finish = async () => {
-      setFinishing(true);
-      try {
-        await finishWorkout(db, workout.id, workout.name);
-        router.replace({ pathname: '/workout/[id]', params: { id: workout.id } });
-      } catch (error) {
-        console.error('Failed to finish workout:', error);
-        Alert.alert('Could not finish the workout', error instanceof Error ? error.message : 'Unknown error');
-        setFinishing(false);
-      }
-    };
-
-    if (unfinished > 0) {
-      Alert.alert(
-        'Finish workout?',
-        `${unfinished} ${unfinished === 1 ? 'set isn’t' : 'sets aren’t'} ticked off and will be removed.`,
-        [
-          { text: 'Keep going', style: 'cancel' },
-          { text: 'Finish', onPress: finish },
-        ]
-      );
-      return;
-    }
-    void finish();
-  };
-
-  const handleDiscardConfirmed = async () => {
-    if (!workout) {
-      return;
-    }
-    await deleteWorkout(db, workout.id);
-    router.back();
-  };
-
-  const handleDiscard = () => {
-    Alert.alert('Discard this workout?', 'Everything logged in it will be deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: handleDiscardConfirmed },
-    ]);
-  };
-
   if (data && !workout) {
     return (
       <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
@@ -152,10 +95,15 @@ export default function ActiveWorkoutScreen() {
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
       <View style={styles.topBar}>
-        <IconButton icon={Icons.chevronLeft} label="Minimise workout" onPress={() => router.back()} />
-        {workout && <Elapsed since={workout.started_at} />}
-        <Button label="Finish" onPress={handleFinish} loading={finishing} style={styles.finishButton} />
+        <View style={styles.topBarSide}>
+          <IconButton icon={Icons.chevronLeft} label="Minimise workout" onPress={() => router.back()} />
+        </View>
+        {workout && <ElapsedClock since={workout.started_at} size={24} />}
+        <View style={[styles.topBarSide, styles.topBarEnd]}>
+          <Button label="End" onPress={actions.end} loading={actions.busy} style={styles.endButton} />
+        </View>
       </View>
+      {actions.error && <AppText color="danger" style={styles.actionError}>{actions.error}</AppText>}
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -213,25 +161,11 @@ export default function ActiveWorkoutScreen() {
             />
           )}
 
-          <Button kind="danger" label="Discard workout" onPress={handleDiscard} />
         </ScrollView>
       </KeyboardAvoidingView>
 
       {restEndsAt !== null && <RestTimer endsAt={restEndsAt} onChange={setRestEndsAt} />}
     </SafeAreaView>
-  );
-}
-
-function Elapsed({ since }: { since: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  return (
-    <AppText style={styles.elapsed} accessibilityLabel="Elapsed time">
-      {formatDuration((now - new Date(since).getTime()) / 1000)}
-    </AppText>
   );
 }
 
@@ -267,29 +201,31 @@ function ExerciseBlock({
         <IconButton icon={Icons.more} label={`Options for ${entry.name}`} color={theme.textSecondary} onPress={onRemove} />
       </View>
 
-      <View style={styles.setHeader}>
-        <AppText variant="caption" color="textSecondary" style={styles.colSet}>Set</AppText>
-        <AppText variant="caption" color="textSecondary" style={styles.colPrevious}>Last time</AppText>
-        <AppText variant="caption" color="textSecondary" style={styles.colInput}>{cardio ? 'Min' : weightLabel(units)}</AppText>
-        <AppText variant="caption" color="textSecondary" style={styles.colInput}>{cardio ? distanceUnit : 'Reps'}</AppText>
-        <View style={styles.colCheck} />
-      </View>
+      <View style={styles.sets}>
+        <View style={styles.setHeader}>
+          <AppText variant="caption" color="textSecondary" style={styles.colSet}>Set</AppText>
+          <AppText variant="caption" color="textSecondary" style={styles.colPrevious}>Last</AppText>
+          <AppText variant="caption" color="textSecondary" style={styles.colInput}>{cardio ? 'Min' : weightLabel(units)}</AppText>
+          <AppText variant="caption" color="textSecondary" style={styles.colInput}>{cardio ? distanceUnit : 'Reps'}</AppText>
+          <View style={styles.colCheck} />
+        </View>
 
-      {entry.sets.map((set) => (
-        <SetRow
-          key={set.id}
-          set={set}
-          previous={previous.find((p) => p.set_number === set.set_number)}
-          cardio={cardio}
-          units={units}
-          onSaved={onChange}
-          onCompleted={onSetCompleted}
-          onDelete={async () => {
-            await deleteSet(db, set);
-            await onChange();
-          }}
-        />
-      ))}
+        {entry.sets.map((set) => (
+          <SetRow
+            key={set.id}
+            set={set}
+            previous={previous.find((p) => p.set_number === set.set_number)}
+            cardio={cardio}
+            units={units}
+            onSaved={onChange}
+            onCompleted={onSetCompleted}
+            onDelete={async () => {
+              await deleteSet(db, set);
+              await onChange();
+            }}
+          />
+        ))}
+      </View>
 
       <Pressable
         accessibilityRole="button"
@@ -301,7 +237,9 @@ function ExerciseBlock({
         <Icon name={Icons.add} size={14} color={theme.textSecondary} />
         <AppText variant="caption" color="textSecondary" style={{ fontWeight: '600' }}>Add set</AppText>
       </Pressable>
-      <Divider />
+      <View style={styles.blockDivider}>
+        <Divider />
+      </View>
     </View>
   );
 }
@@ -457,6 +395,7 @@ function SetRow({
 
 function RestTimer({ endsAt, onChange }: { endsAt: number, onChange: (endsAt: number | null) => void }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [now, setNow] = useState(() => Date.now());
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
 
@@ -473,7 +412,7 @@ function RestTimer({ endsAt, onChange }: { endsAt: number, onChange: (endsAt: nu
   }, [remaining, onChange]);
 
   return (
-    <View style={[styles.rest, { backgroundColor: theme.backgroundSelected }]}>
+    <View style={[styles.rest, { backgroundColor: theme.backgroundSelected, bottom: insets.bottom + Spacing.two }]}>
       <Icon name={Icons.timer} size={18} color={theme.textSecondary} />
       <AppText style={styles.restClock}>{formatDuration(remaining)}</AppText>
       <View style={styles.flex} />
@@ -492,23 +431,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.two,
+    paddingLeft: Layout.gutter - Layout.iconInset,
+    paddingRight: Layout.gutter,
     paddingVertical: Spacing.one,
   },
-  elapsed: {
-    fontFamily: Display.semibold,
-    fontSize: 24,
-    fontVariant: ['tabular-nums'],
+  topBarSide: {
+    flex: 1,
+    alignItems: 'flex-start',
   },
-  finishButton: {
-    minHeight: 38,
-    paddingHorizontal: Spacing.three,
+  topBarEnd: {
+    alignItems: 'flex-end',
+  },
+  endButton: {
+    minHeight: Layout.touch,
+    paddingHorizontal: Spacing.three + 4,
     borderRadius: Radius.small,
   },
+  actionError: {
+    paddingHorizontal: Layout.gutter,
+  },
   content: {
-    padding: Spacing.three,
+    paddingHorizontal: Layout.gutter,
+    paddingTop: Spacing.two,
     paddingBottom: 120,
-    gap: Spacing.three,
+    gap: Spacing.four,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
@@ -519,11 +465,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   block: {
-    gap: Spacing.two,
+    gap: 12,
   },
   blockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: -Layout.iconInset,
+  },
+  blockDivider: {
+    marginTop: 12,
+  },
+  sets: {
+    gap: Spacing.one,
   },
   setHeader: {
     flexDirection: 'row',
@@ -540,7 +493,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.small,
   },
   colSet: {
-    width: 30,
+    width: 24,
     alignItems: 'center',
     textAlign: 'center',
   },
@@ -548,25 +501,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   colInput: {
-    width: 72,
+    width: 64,
     textAlign: 'center',
   },
   colCheck: {
-    width: 40,
+    width: Layout.touch,
   },
   setNumber: {
     fontFamily: Display.semibold,
     fontSize: 20,
   },
   setInput: {
-    height: 40,
+    height: Layout.touch,
     borderRadius: Radius.small,
     fontSize: 17,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   check: {
-    height: 40,
+    height: Layout.touch,
     borderRadius: Radius.small,
     alignItems: 'center',
     justifyContent: 'center',
@@ -576,29 +529,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.one,
-    paddingVertical: 10,
+    minHeight: Layout.touch,
     borderRadius: Radius.small,
-    marginBottom: Spacing.two,
   },
   notes: {
-    minHeight: 80,
+    minHeight: 96,
     borderRadius: Radius.small,
-    padding: 12,
+    padding: Spacing.three,
     fontSize: 15,
     textAlignVertical: 'top',
   },
   rest: {
     position: 'absolute',
-    left: Spacing.three,
-    right: Spacing.three,
-    bottom: Spacing.five,
+    left: Layout.gutter,
+    right: Layout.gutter,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one,
     borderRadius: Radius.medium,
     paddingLeft: Spacing.three,
-    paddingRight: Spacing.one,
-    paddingVertical: Spacing.one,
+    paddingRight: Spacing.two,
+    paddingVertical: Spacing.two,
   },
   restClock: {
     fontFamily: Display.semibold,
@@ -606,7 +557,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   restButton: {
-    minHeight: 40,
-    paddingHorizontal: Spacing.two + 4,
+    minHeight: Layout.touch,
+    paddingHorizontal: Spacing.two,
   },
 });

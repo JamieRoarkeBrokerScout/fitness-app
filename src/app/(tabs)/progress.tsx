@@ -1,16 +1,19 @@
 import { BarChart, LineChart, recoveryColor } from '@/components/ui/charts';
-import { AppText, Divider, IconButton, Icons, Panel, Segmented, Stat } from '@/components/ui/primitives';
+import { AppText, Button, Divider, IconButton, Icons, Panel, Segmented, Stat } from '@/components/ui/primitives';
 import { Screen } from '@/components/ui/screen';
-import { Plate, Radius, Spacing } from '@/constants/theme';
+import { Plate, Radius, Spacing, Layout } from '@/constants/theme';
 import { getMeasurements } from '@/database/bodyQueries';
+import { getSetting, setSetting } from '@/database/settingsQueries';
 import { getNutritionDays, getWhoopDays } from '@/database/healthQueries';
 import { getCompletedSets, getWorkoutSummaries } from '@/database/workoutQueries';
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useSettings } from '@/hooks/use-settings';
 import { useTheme } from '@/hooks/use-theme';
+import { circumferenceFields } from '@/lib/body-fields';
 import { dateKey, daysIn, formatHoursMinutes, formatPeriod, periodContaining, PeriodKind, shiftPeriod } from '@/lib/dates';
 import { estimateOneRepMax, formatNumber, formatVolume, kgToDisplay, weightLabel } from '@/lib/units';
 import { WorkoutSummary } from '@/types/workouts';
+import { useSQLiteContext } from 'expo-sqlite';
 import { ReactNode, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -28,6 +31,7 @@ function average(values: (number | null)[]) {
 
 export default function ProgressScreen() {
   const theme = useTheme();
+  const db = useSQLiteContext();
   const { units } = useSettings();
   const [kind, setKind] = useState<PeriodKind>('week');
   const [offset, setOffset] = useState(0);
@@ -36,16 +40,18 @@ export default function ProgressScreen() {
   const previous = shiftPeriod(period, -1);
   const days = daysIn(period);
 
-  const { data } = useFocusQuery(async (database) => {
-    const [workouts, previousWorkouts, sets, whoop, nutrition, measurements] = await Promise.all([
+  const { data, reload } = useFocusQuery(async (database) => {
+    const [workouts, previousWorkouts, sets, whoop, nutrition, measurements, allMeasurements, reviewDate] = await Promise.all([
       getWorkoutSummaries(database, { from: period.start.toISOString(), to: period.end.toISOString() }),
       getWorkoutSummaries(database, { from: previous.start.toISOString(), to: previous.end.toISOString() }),
       getCompletedSets(database, period.end.toISOString()),
       getWhoopDays(database, dateKey(period.start), dateKey(period.end)),
       getNutritionDays(database, dateKey(period.start), dateKey(period.end)),
       getMeasurements(database, { from: period.start.toISOString(), to: period.end.toISOString() }),
+      getMeasurements(database),
+      getSetting(database, 'weekly_review_date'),
     ]);
-    return { workouts, previousWorkouts, sets, whoop, nutrition, measurements };
+    return { workouts, previousWorkouts, sets, whoop, nutrition, measurements, allMeasurements, reviewDate };
   }, [kind, offset]);
 
   const labels = days.map((day) =>
@@ -98,6 +104,7 @@ export default function ProgressScreen() {
   const whoopByDay = new Map((data?.whoop ?? []).map((day) => [day.date, day]));
   const recovery = keys.map((key) => whoopByDay.get(key)?.recovery_score ?? null);
   const strain = keys.map((key) => whoopByDay.get(key)?.strain ?? null);
+  const steps = keys.map((key) => whoopByDay.get(key)?.step_count ?? null);
   const sleepHours = keys.map((key) => {
     const ms = whoopByDay.get(key)?.sleep_ms;
     return ms ? ms / 3_600_000 : null;
@@ -141,18 +148,42 @@ export default function ProgressScreen() {
           setOffset(0);
         }}
       />
-      <View style={styles.periodNav}>
-        <IconButton icon={Icons.chevronLeft} label={`Previous ${periodWord}`} onPress={() => setOffset(offset - 1)} />
-        <AppText variant="heading">{offset === 0 ? `This ${periodWord}` : formatPeriod(period)}</AppText>
-        <IconButton
-          icon={Icons.chevronRight}
-          label={`Next ${periodWord}`}
-          onPress={() => setOffset(offset + 1)}
-          disabled={offset >= 0}
-          color={offset >= 0 ? theme.backgroundSelected : undefined}
-        />
+      <View>
+        <View style={styles.periodNav}>
+          <IconButton icon={Icons.chevronLeft} label={`Previous ${periodWord}`} onPress={() => setOffset(offset - 1)} />
+          <AppText variant="heading">{offset === 0 ? `This ${periodWord}` : formatPeriod(period)}</AppText>
+          <IconButton
+            icon={Icons.chevronRight}
+            label={`Next ${periodWord}`}
+            onPress={() => setOffset(offset + 1)}
+            disabled={offset >= 0}
+            color={offset >= 0 ? theme.backgroundSelected : undefined}
+          />
+        </View>
+        {offset === 0 && <AppText variant="caption" color="textSecondary" style={styles.centered}>{formatPeriod(period)}</AppText>}
       </View>
-      {offset === 0 && <AppText variant="caption" color="textSecondary" style={styles.centered}>{formatPeriod(period)}</AppText>}
+
+      {kind === 'week' && offset === 0 && (
+        <>
+          <Button
+            label={data?.reviewDate === dateKey(period.start) ? 'Refresh weekly review' : 'Review my week and draft next week'}
+            icon={Icons.bolt}
+            disabled={!data}
+            onPress={async () => {
+              await setSetting(db, 'weekly_review_date', dateKey(period.start));
+              await reload();
+            }} />
+          {data?.reviewDate === dateKey(period.start) && <WeeklyReview
+            workouts={workouts}
+            previousWorkouts={previousWorkouts}
+            sets={data.sets.filter((set) => set.started_at >= periodStartIso)}
+            whoop={data.whoop}
+            nutrition={data.nutrition}
+            measurements={data.allMeasurements}
+            units={units}
+          />}
+        </>
+      )}
 
       <View style={styles.row}>
         <Stat value={String(workouts.length)} label={delta(workouts.length, previousWorkouts.length, String)} />
@@ -227,6 +258,9 @@ export default function ProgressScreen() {
           <ChartCard title="Sleep" detail={summary(average(sleepHours), (value) => `${formatHoursMinutes(value * 60)} average`)}>
             <BarChart values={sleepHours} labels={labels} color={Plate.violet} format={(value) => `${formatNumber(value)}h`} />
           </ChartCard>
+          <ChartCard title="Steps" detail="WHOOP cycle total">
+            <BarChart values={steps} labels={labels} color={Plate.blue} format={(value) => Math.round(value).toLocaleString()} />
+          </ChartCard>
         </>
       ) : (
         <AppText variant="caption" color="textSecondary">Connect WHOOP in Settings to see recovery, strain and sleep here.</AppText>
@@ -262,6 +296,84 @@ function summary(value: number | null, format: (value: number) => string) {
   return value === null ? '' : format(value);
 }
 
+function WeeklyReview({
+  workouts,
+  previousWorkouts,
+  sets,
+  whoop,
+  nutrition,
+  measurements,
+  units,
+}: {
+  workouts: WorkoutSummary[],
+  previousWorkouts: WorkoutSummary[],
+  sets: { exercise_name: string, reps: number | null, weight: number | null }[],
+  whoop: { recovery_score: number | null, sleep_ms: number | null }[],
+  nutrition: { calories: number | null, protein_g: number | null }[],
+  measurements: { weight_kg: number | null, waist_cm: number | null, chest_cm: number | null, hips_cm: number | null, arm_cm: number | null, thigh_cm: number | null, neck_cm: number | null }[],
+  units: 'lb' | 'kg',
+}) {
+  const recoveryAverage = average(whoop.map((day) => day.recovery_score));
+  const sleepAverageHours = average(whoop.map((day) => day.sleep_ms === null ? null : day.sleep_ms / 3_600_000));
+  const calorieAverage = average(nutrition.map((day) => day.calories));
+  const proteinAverage = average(nutrition.map((day) => day.protein_g));
+  const latestWeight = measurements.find((entry) => entry.weight_kg !== null)?.weight_kg ?? null;
+  const latestMeasurement = measurements[0];
+  const priorMeasurement = measurements[1];
+  const proteinTarget = latestWeight === null ? null : Math.round(latestWeight * 1.6);
+  const count = workouts.length;
+  const targetSessions = count === 0 ? 2 : Math.min(5, Math.max(2, count));
+  const lowerRecovery = recoveryAverage !== null && recoveryAverage < 50;
+  const shortSleep = sleepAverageHours !== null && sleepAverageHours < 7;
+  const progress = count >= 3 && !lowerRecovery && !shortSleep;
+  const exerciseCounts = new Map<string, number>();
+  for (const set of sets) exerciseCounts.set(set.exercise_name, (exerciseCounts.get(set.exercise_name) ?? 0) + 1);
+  const focusExercises = [...exerciseCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name]) => name);
+
+  return (
+    <Panel style={styles.card}>
+      <AppText variant="heading">Your week, reviewed</AppText>
+      <AppText color="textSecondary">
+        {count} {count === 1 ? 'workout' : 'workouts'} logged, compared with {previousWorkouts.length} last week.
+        {recoveryAverage === null ? ' WHOOP recovery is not available for this week.' : ` Average recovery: ${Math.round(recoveryAverage)}%.`}
+        {sleepAverageHours === null ? '' : ` Average sleep: ${formatHoursMinutes(sleepAverageHours * 60)}.`}
+      </AppText>
+      <AppText color="textSecondary">
+        {calorieAverage === null ? 'No food log found for this week.' : `Food log average: ${Math.round(calorieAverage).toLocaleString()} kcal and ${proteinAverage === null ? 'no protein data' : `${Math.round(proteinAverage)} g protein`} per day.`}
+        {proteinTarget === null ? '' : ` A general protein reference at your latest logged weight is about ${proteinTarget} g/day; adjust for your needs and clinician guidance.`}
+      </AppText>
+      <Divider />
+      <AppText variant="bodyStrong">Draft for next week · {targetSessions} training sessions</AppText>
+      <AppText color="textSecondary">
+        {count === 0
+          ? 'Start with two manageable full-body sessions and log them so the next review can use your actual training history.'
+          : lowerRecovery || shortSleep
+            ? 'Keep your current exercise selection and working weights steady. Prioritize recovery; avoid adding sets this week.'
+            : progress
+              ? 'Keep the same exercises and sets. For lifts where every set was completed with good form, aim for one extra rep per set before increasing weight.'
+              : 'Repeat the recent training structure and focus on completing the sessions consistently before adding more volume.'}
+      </AppText>
+      {focusExercises.length > 0 && (
+        <AppText color="textSecondary">Recent exercise focus: {focusExercises.join(' · ')}. Keep the same exercise order and use last week’s logged loads as starting points.</AppText>
+      )}
+      {latestWeight !== null && (
+        <AppText variant="caption" color="textSecondary">Latest bodyweight: {formatNumber(kgToDisplay(latestWeight, units))} {weightLabel(units)}. Food averages only reflect imported/logged days; no calorie target is inferred.</AppText>
+      )}
+      {latestMeasurement && priorMeasurement && (() => {
+        const changes = circumferenceFields.flatMap(({ key, label }) => {
+          const current = latestMeasurement[key];
+          const previous = priorMeasurement[key];
+          return current !== null && previous !== null
+            ? [`${label.toLowerCase()} ${current > previous ? '+' : ''}${formatNumber(current - previous)} cm`]
+            : [];
+        });
+        return changes.length > 0 ? <AppText variant="caption" color="textSecondary">Changes since the previous measurement: {changes.join(', ')}.</AppText> : null;
+      })()}
+      <AppText variant="caption" color="textSecondary">This is an on-device draft from your logs, not medical advice. Edit it to match your goals, equipment, and how you feel.</AppText>
+    </Panel>
+  );
+}
+
 function ChartCard({ title, detail, children }: { title: string, detail?: string, children: ReactNode }) {
   return (
     <Panel style={styles.card}>
@@ -279,11 +391,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: -Spacing.one,
+    marginHorizontal: -Layout.iconInset,
   },
   centered: {
     textAlign: 'center',
-    marginTop: -Spacing.three,
   },
   row: {
     flexDirection: 'row',
@@ -328,6 +439,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingVertical: Spacing.two,
+    paddingVertical: 12,
   },
 });

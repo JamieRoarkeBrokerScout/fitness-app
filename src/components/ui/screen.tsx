@@ -1,4 +1,4 @@
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Layout, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ReactNode, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -59,9 +59,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     content: {
-        paddingHorizontal: Spacing.three,
-        paddingBottom: BottomTabInset + Spacing.five,
-        gap: Spacing.three,
+        paddingHorizontal: Layout.gutter,
+        paddingBottom: BottomTabInset + Layout.section,
+        gap: Layout.block,
         width: '100%',
         maxWidth: MaxContentWidth,
         alignSelf: 'center',
@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         paddingTop: Spacing.three,
+        marginBottom: Spacing.two,
         gap: Spacing.two,
     },
 });

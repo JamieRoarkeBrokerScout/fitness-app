@@ -1,5 +1,27 @@
 import { NutritionDay, WhoopDay, WhoopWorkout } from '@/types/health';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { Whoop4Sample } from '@/lib/whoop/whoop4-protocol';
+
+export async function upsertWhoopSample(db: SQLiteDatabase, sample: Whoop4Sample) {
+    await db.runAsync(
+        `INSERT OR REPLACE INTO whoop_samples (timestamp_ms, heart_rate, rr_intervals_json, acceleration_json)
+         VALUES (?, ?, ?, ?)`,
+        [sample.timestampMs, sample.heartRate, JSON.stringify(sample.rrIntervalsMs), sample.acceleration ? JSON.stringify(sample.acceleration) : null]
+    );
+}
+
+export async function getWhoopSampleCount(db: SQLiteDatabase) {
+    return db.getFirstAsync<{ count: number, first_ms: number | null, last_ms: number | null }>(
+        'SELECT COUNT(*) AS count, MIN(timestamp_ms) AS first_ms, MAX(timestamp_ms) AS last_ms FROM whoop_samples'
+    );
+}
+
+export async function getRecentWhoopSamples(db: SQLiteDatabase, limit = 1000) {
+    return db.getAllAsync<{ timestamp_ms: number, heart_rate: number, rr_intervals_json: string, acceleration_json: string | null }>(
+        'SELECT timestamp_ms, heart_rate, rr_intervals_json, acceleration_json FROM whoop_samples ORDER BY timestamp_ms DESC LIMIT ?',
+        [limit]
+    );
+}
 
 export async function upsertWhoopDay(
     db: SQLiteDatabase,
@@ -9,8 +31,8 @@ export async function upsertWhoopDay(
         `INSERT OR REPLACE INTO whoop_days (
             date, cycle_id, strain, kilojoule, average_heart_rate, max_heart_rate, recovery_score, hrv_ms,
             resting_heart_rate, spo2_pct, skin_temp_c, sleep_performance_pct, sleep_efficiency_pct, sleep_ms,
-            respiratory_rate, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            respiratory_rate, updated_at, step_count, light_sleep_ms, deep_sleep_ms, rem_sleep_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             day.date,
             day.cycle_id,
@@ -28,6 +50,10 @@ export async function upsertWhoopDay(
             day.sleep_ms,
             day.respiratory_rate,
             day.updated_at,
+            day.step_count,
+            day.light_sleep_ms,
+            day.deep_sleep_ms,
+            day.rem_sleep_ms,
         ]
     );
 }

@@ -135,6 +135,28 @@ const migrations: ((db: SQLiteDatabase) => Promise<void>)[] = [
         );
         `);
     },
+    // 3: WHOOP cycle steps and sleep stage detail
+    async (db) => {
+        await db.execAsync(`
+        ALTER TABLE whoop_days ADD COLUMN step_count INTEGER;
+        ALTER TABLE whoop_days ADD COLUMN light_sleep_ms INTEGER;
+        ALTER TABLE whoop_days ADD COLUMN deep_sleep_ms INTEGER;
+        ALTER TABLE whoop_days ADD COLUMN rem_sleep_ms INTEGER;
+        `);
+    },
+    // 4: direct WHOOP 4.0 BLE samples. Keep raw sensor records so analytics can be recomputed.
+    async (db) => {
+        await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS whoop_samples (
+            timestamp_ms INTEGER PRIMARY KEY,
+            heart_rate INTEGER NOT NULL,
+            rr_intervals_json TEXT NOT NULL DEFAULT '[]',
+            acceleration_json TEXT,
+            source TEXT NOT NULL DEFAULT 'whoop4_ble'
+        );
+        CREATE INDEX IF NOT EXISTS idx_whoop_samples_timestamp ON whoop_samples(timestamp_ms);
+        `);
+    },
 ];
 
 export async function initializeDatabase(db: SQLiteDatabase) {

@@ -85,6 +85,22 @@ export const Spacing = {
   six: 64,
 } as const;
 
+/** Spacing roles, so screens share one rhythm: tight inside a group, generous between groups. */
+export const Layout = {
+  /** Space between the screen edge and content. */
+  gutter: 20,
+  /** Inside a panel. */
+  panel: 20,
+  /** Between items in the same section. */
+  block: Spacing.three,
+  /** Above a new section. */
+  section: Spacing.five,
+  /** Smallest comfortable tap target. */
+  touch: 44,
+  /** How far a 22pt icon sits inside its 44pt IconButton, for lining it up with the gutter. */
+  iconInset: 11,
+} as const;
+
 export const Radius = {
   small: 8,
   medium: 14,

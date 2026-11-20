@@ -1,5 +1,5 @@
 import { AppText, Button, Chip, Divider, Icon, Icons } from '@/components/ui/primitives';
-import { Plate, Radius, Spacing } from '@/constants/theme';
+import { Plate, Radius, Spacing, Layout } from '@/constants/theme';
 import { getExerciseCategories, getExercises } from '@/database/exerciseQueries';
 import { addExerciseToWorkout, getRecentExercises } from '@/database/workoutQueries';
 import { useTheme } from '@/hooks/use-theme';
@@ -109,7 +109,7 @@ export default function AddExerciseScreen() {
           clearButtonMode="while-editing"
           style={[styles.search, { backgroundColor: theme.backgroundElement, color: theme.text }]}
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chips}>
           <Chip label="All" selected={category === null} onPress={() => setCategory(null)} />
           {categories.map((value) => (
             <Chip key={value} label={value} selected={category === value} onPress={() => setCategory(category === value ? null : value)} />
@@ -126,8 +126,8 @@ export default function AddExerciseScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={Divider}
-        ListHeaderComponent={showRecent ? <AppText variant="caption" color="textSecondary">Recently done first</AppText> : null}
-        ListEmptyComponent={!loading ? <AppText color="textSecondary" style={styles.message}>No exercises match “{debouncedSearch}”.</AppText> : null}
+        ListHeaderComponent={showRecent ? <AppText variant="caption" color="textSecondary" style={styles.listHeader}>Recently done first</AppText> : undefined}
+        ListEmptyComponent={!loading ? <AppText color="textSecondary" style={styles.message}>No exercises match “{debouncedSearch}”.</AppText> : undefined}
         renderItem={({ item }) => {
           const index = selected.indexOf(item.id);
           const isSelected = index !== -1;
@@ -180,30 +180,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   top: {
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Layout.gutter,
     paddingTop: Spacing.three,
-    gap: Spacing.two,
+    gap: 12,
   },
   search: {
     borderRadius: Radius.small,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 14,
     fontSize: 16,
+  },
+  // runs edge to edge so chips scroll off the screen rather than clipping at the gutter
+  chipScroller: {
+    flexGrow: 0,
+    marginHorizontal: -Layout.gutter,
   },
   chips: {
     gap: Spacing.two,
+    paddingHorizontal: Layout.gutter,
     paddingVertical: Spacing.one,
   },
   list: {
-    paddingHorizontal: Spacing.three,
-    paddingBottom: 120,
+    paddingHorizontal: Layout.gutter,
+    paddingBottom: Spacing.four,
     paddingTop: Spacing.two,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     gap: Spacing.three,
+  },
+  listHeader: {
+    paddingBottom: Spacing.one,
   },
   capitalize: {
     textTransform: 'capitalize',
@@ -224,14 +233,16 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   footer: {
-    padding: Spacing.three,
+    paddingHorizontal: Layout.gutter,
+    paddingVertical: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   hint: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.one,
-    padding: Spacing.three,
+    gap: Spacing.two,
+    paddingHorizontal: Layout.gutter,
+    paddingVertical: Spacing.three,
   },
 });

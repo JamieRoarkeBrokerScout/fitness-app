@@ -1,5 +1,5 @@
 import { AppText, Button, Segmented } from '@/components/ui/primitives';
-import { Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Layout } from '@/constants/theme';
 import { deletePhotoRow, getPhoto, getPhotos } from '@/database/bodyQueries';
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useTheme } from '@/hooks/use-theme';
@@ -94,7 +94,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.three,
+    paddingHorizontal: Layout.gutter,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.six,
     gap: Spacing.three,
   },
   image: {
