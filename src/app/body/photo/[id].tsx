@@ -1,3 +1,4 @@
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
 import { AppText, Button, Segmented } from '@/components/ui/primitives';
 import { Radius, Spacing, Layout } from '@/constants/theme';
 import { deletePhotoRow, getPhoto, getPhotos } from '@/database/bodyQueries';
@@ -58,7 +59,7 @@ export default function PhotoScreen() {
   const imageStyle = [styles.image, { backgroundColor: theme.backgroundElement }];
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <DashboardSurface><ScrollView contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: `${photo.pose[0].toUpperCase()}${photo.pose.slice(1)}, ${formatDate(photo)}` }} />
       {earliest && (
         <Segmented
@@ -85,7 +86,7 @@ export default function PhotoScreen() {
         <Image source={{ uri: photoUri(photo.file_name) }} style={imageStyle} contentFit="cover" />
       )}
       <Button kind="danger" label="Delete photo" onPress={handleDelete} />
-    </ScrollView>
+    </ScrollView></DashboardSurface>
   );
 }
 

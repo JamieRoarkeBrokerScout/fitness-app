@@ -32,8 +32,8 @@ required, obtain your own license directly from Gym visual. **This repository
 does not grant you any rights to the media beyond what Gym visual's terms
 allow** — cloning this repo is not a license.
 
-## Dataset (non-media)
+## Exercise text
 
-The exercise **data** (names, categories, body parts, equipment, targets,
-muscle groups, and multilingual instructions) is separate from the media and
-is released under the MIT License — see [`LICENSE`](LICENSE).
+The app adapts the 5,632 named exercise records from [openGym's catalogue](https://github.com/DuarteSantos8/openGym/tree/e4a68a94c42a3c17cbd560d66ce2e46a7048ab99/catalogue/exercises) to its SQLite schema. The media-only variant records are excluded. Existing thumbnail references come from the earlier dataset.
+
+See the [upstream notice](OPENGYM-NOTICE.md), [openGym license](OPENGYM-LICENSE), and [ExerciseDB dataset license](EXERCISE-DATA-LICENSE) for the respective terms.

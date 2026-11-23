@@ -15,7 +15,7 @@ export function ElapsedClock({ since, size = 28 }: { since: string, size?: numbe
     return () => clearInterval(timer);
   }, []);
   return (
-    <AppText accessibilityLabel="Elapsed time" style={{ fontFamily: Display.semibold, fontSize: size, fontVariant: ['tabular-nums'] }}>
+    <AppText accessibilityLabel="Elapsed time" style={{ fontFamily: Display.semibold, fontSize: size, lineHeight: Math.ceil(size * 1.3), fontVariant: ['tabular-nums'] }}>
       {formatDuration((now - new Date(since).getTime()) / 1000)}
     </AppText>
   );
@@ -57,11 +57,14 @@ const styles = StyleSheet.create({
   },
   summary: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.three,
   },
   title: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 140,
     gap: 2,
   },
   controls: {

@@ -3,6 +3,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ReactNode, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DashboardSurface } from './dashboard-surface';
 import { AppText } from './primitives';
 
 // Standard tab screen: a large condensed title, an optional trailing control, and
@@ -36,7 +37,7 @@ export function Screen({
     };
 
     return (
-        <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <DashboardSurface><SafeAreaView edges={['top','left','right']} style={styles.safeArea}>
             <ScrollView
                 contentContainerStyle={styles.content}
                 keyboardShouldPersistTaps="handled"
@@ -44,13 +45,13 @@ export function Screen({
                 <View style={styles.header}>
                     <View style={{ flex: 1 }}>
                         {subtitle && <AppText variant="caption" color="textSecondary">{subtitle}</AppText>}
-                        <AppText variant="title">{title}</AppText>
+                        <AppText accessibilityRole="header" variant="display">{title}</AppText>
                     </View>
                     {action}
                 </View>
                 {children}
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView></DashboardSurface>
     );
 }
 

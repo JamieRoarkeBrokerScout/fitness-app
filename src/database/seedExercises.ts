@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import exercises from '../../assets/data/exercises.json';
 
 // Increment when the bundled catalog changes so existing installs reconcile once.
-const EXERCISE_CATALOG_VERSION = '1';
+const EXERCISE_CATALOG_VERSION = '2';
 
 // seed the database with exercises from the JSON file
 // wrapped in a transaction to ensure atomicity

@@ -1,4 +1,5 @@
-import { AppText, Button, Chip, Divider, Icon, Icons } from '@/components/ui/primitives';
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
+import { AppText, Button, Chip, Divider, Icons } from '@/components/ui/primitives';
 import { Plate, Radius, Spacing, Layout } from '@/constants/theme';
 import { getExerciseCategories, getExercises } from '@/database/exerciseQueries';
 import exerciseImages from '@/database/exerciseImages';
@@ -77,6 +78,11 @@ export default function AddExerciseScreen() {
     setSelected((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
   };
 
+  const leavePicker = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/workout/active');
+  };
+
   const handleAdd = async () => {
     if (!workoutId || selected.length === 0) {
       return;
@@ -86,7 +92,7 @@ export default function AddExerciseScreen() {
       for (const exerciseId of selected) {
         await addExerciseToWorkout(db, workoutId, exerciseId);
       }
-      router.back();
+      leavePicker();
     } catch (addError) {
       console.error('Failed to add exercise to workout:', addError);
       setError(addError instanceof Error ? addError.message : 'Unknown error');
@@ -100,8 +106,9 @@ export default function AddExerciseScreen() {
     : exercises;
 
   return (
-    <SafeAreaView edges={['bottom']} style={[styles.flex, { backgroundColor: theme.background }]}>
+    <DashboardSurface><SafeAreaView style={styles.flex}>
       <View style={styles.top}>
+        <AppText variant="heading">Add exercise</AppText>
         <TextInput
           placeholder="Search exercises"
           placeholderTextColor={theme.textSecondary}
@@ -139,13 +146,13 @@ export default function AddExerciseScreen() {
               accessibilityState={{ checked: isSelected }}
               onPress={() => toggle(item.id)}
               style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
-              <Image
+              {!!item.image && <Image
                 source={exerciseImages[item.image.split('/').pop()?.replace(/\.jpg$/i, '') ?? '']}
                 contentFit="cover"
                 cachePolicy="memory-disk"
                 style={[styles.exerciseImage, { backgroundColor: theme.backgroundElement }]}
                 accessibilityLabel={`${item.name} exercise demonstration`}
-              />
+              />}
               <View style={styles.flex}>
                 <AppText variant="bodyStrong" style={styles.capitalize}>{item.name}</AppText>
                 <AppText variant="caption" color="textSecondary" style={styles.capitalize}>
@@ -164,23 +171,18 @@ export default function AddExerciseScreen() {
         }}
       />
 
-      {selected.length > 0 && (
-        <View style={[styles.footer, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
+      <View style={[styles.footer, { borderTopColor: theme.border }]}>
+        <Button kind="secondary" label="Cancel" disabled={adding} onPress={leavePicker} />
+        {selected.length > 0 && (
           <Button
             label={selected.length === 1 ? 'Add 1 exercise' : `Add ${selected.length} exercises`}
             icon={Icons.add}
             loading={adding}
             onPress={handleAdd}
           />
-        </View>
-      )}
-      {selected.length === 0 && (
-        <View style={styles.hint}>
-          <Icon name={Icons.check} size={14} color={theme.textSecondary} />
-          <AppText variant="caption" color="textSecondary">Tap exercises to pick them, in the order you’ll do them.</AppText>
-        </View>
-      )}
-    </SafeAreaView>
+        )}
+      </View>
+    </SafeAreaView></DashboardSurface>
   );
 }
 
@@ -210,6 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   list: {
+    backgroundColor: 'rgba(26,29,29,0.92)',
     paddingHorizontal: Layout.gutter,
     paddingBottom: Spacing.four,
     paddingTop: Spacing.two,
@@ -247,16 +250,11 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   footer: {
+    backgroundColor: '#222624',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: Layout.gutter,
     paddingVertical: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Layout.gutter,
-    paddingVertical: Spacing.three,
   },
 });

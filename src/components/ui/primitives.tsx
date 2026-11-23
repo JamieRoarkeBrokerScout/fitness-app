@@ -1,3 +1,5 @@
+import { GlassView } from 'expo-glass-effect';
+import { useDashboardGlass } from './dashboard-surface';
 import { Display, Layout, Radius, Spacing, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { SymbolView } from 'expo-symbols';
@@ -72,6 +74,7 @@ export function Button({
     ...rest
 }: Omit<PressableProps, 'children'> & { label: string, kind?: ButtonKind, icon?: IconName, loading?: boolean }) {
     const theme = useTheme();
+    const glass = useDashboardGlass() && (kind === 'primary' || kind === 'secondary');
     const background = {
         primary: theme.action,
         secondary: theme.backgroundSelected,
@@ -91,11 +94,12 @@ export function Button({
             disabled={disabled || loading}
             style={(state) => [
                 styles.button,
-                { backgroundColor: background, opacity: disabled ? 0.4 : state.pressed ? 0.75 : 1 },
+                { backgroundColor: glass ? 'transparent' : background, opacity: disabled ? 0.4 : state.pressed ? 0.75 : 1 },
                 kind === 'danger' && { borderWidth: 1, borderColor: theme.danger },
                 typeof style === 'function' ? style(state) : style,
             ]}
             {...rest}>
+            {glass && <GlassView pointerEvents="none" colorScheme={kind === 'primary' ? 'light' : 'dark'} tintColor={background} isInteractive style={[StyleSheet.absoluteFill, { borderRadius: 26 }]} />}
             {loading ? (
                 <ActivityIndicator color={foreground} />
             ) : (
@@ -142,8 +146,8 @@ export function Segmented<T extends string>({
                         accessibilityRole="tab"
                         accessibilityState={{ selected }}
                         onPress={() => onChange(option.value)}
-                        style={[styles.segment, selected && { backgroundColor: theme.backgroundSelected }]}>
-                        <Text style={[styles.segmentLabel, { color: selected ? theme.text : theme.textSecondary }]}>
+                        style={[styles.segment, selected && { backgroundColor: theme.action }]}>
+                        <Text style={[styles.segmentLabel, { color: selected ? theme.actionText : theme.textSecondary }]}>
                             {option.label}
                         </Text>
                     </Pressable>
@@ -242,12 +246,14 @@ export const Icons = {
 
 const styles = StyleSheet.create({
     panel: {
-        borderRadius: Radius.medium,
+        borderRadius: Radius.large,
+        borderColor: '#535852',
+        borderWidth: StyleSheet.hairlineWidth,
         padding: Layout.panel,
     },
     button: {
         minHeight: 52,
-        borderRadius: Radius.medium,
+        borderRadius: 26,
         paddingHorizontal: Spacing.three,
         flexDirection: 'row',
         alignItems: 'center',

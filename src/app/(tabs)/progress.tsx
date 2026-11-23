@@ -185,26 +185,26 @@ export default function ProgressScreen() {
         </>
       )}
 
-      <View style={styles.row}>
+      <Panel style={styles.row}>
         <Stat value={String(workouts.length)} label={delta(workouts.length, previousWorkouts.length, String)} />
         <Stat
           value={formatHoursMinutes(totalMinutes(workouts))}
           label={delta(totalMinutes(workouts), totalMinutes(previousWorkouts), formatHoursMinutes)}
         />
-      </View>
-      <View style={styles.row}>
+      </Panel>
+      <Panel style={styles.row}>
         <Stat
           value={formatVolume(volume, units)}
           unit={weightLabel(units)}
           label={`volume, ${delta(volume, previousVolume, (value) => formatVolume(value, units))}`}
         />
-      </View>
+      </Panel>
 
       <ChartCard title="Training volume" detail={weightLabel(units)}>
         <BarChart
           values={keys.map((key) => (volumeByDay.has(key) ? kgToDisplay(volumeByDay.get(key)!, units) : null))}
           labels={labels}
-          color={theme.text}
+          color={theme.action}
           format={(value) => Math.round(value).toLocaleString()}
         />
       </ChartCard>
@@ -216,7 +216,7 @@ export default function ProgressScreen() {
               <View key={category} style={styles.categoryRow}>
                 <AppText variant="caption" style={styles.categoryLabel}>{category}</AppText>
                 <View style={[styles.categoryTrack, { backgroundColor: theme.backgroundSelected }]}>
-                  <View style={[styles.categoryBar, { backgroundColor: theme.text, width: `${(count / maxCategory) * 100}%` }]} />
+                  <View style={[styles.categoryBar, { backgroundColor: theme.action, width: `${(count / maxCategory) * 100}%` }]} />
                 </View>
                 <AppText variant="caption" color="textSecondary" style={styles.categoryCount}>{count}</AppText>
               </View>

@@ -5,13 +5,14 @@ import {
   BarlowCondensed_700Bold,
   useFonts,
 } from '@expo-google-fonts/barlow-condensed';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Suspense, useEffect } from 'react';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
+import { DashboardMaterials } from '@/components/ui/dashboard-surface';
 import { Colors } from '@/constants/theme';
 import { initializeDatabase } from '@/database/database';
 import { SettingsProvider } from '@/hooks/use-settings';
@@ -19,8 +20,7 @@ import { SettingsProvider } from '@/hooks/use-settings';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'light' ? 'light' : 'dark'];
+  const colors = Colors.dark;
   const [fontsLoaded, fontError] = useFonts({
     BarlowCondensed_500Medium,
     BarlowCondensed_600SemiBold,
@@ -38,7 +38,7 @@ export default function RootLayout() {
     return null;
   }
 
-  const base = scheme === 'light' ? DefaultTheme : DarkTheme;
+  const base = DarkTheme;
   const navigationTheme = {
     ...base,
     colors: {
@@ -60,12 +60,13 @@ export default function RootLayout() {
       }>
       <SQLiteProvider databaseName="fitness.db" onInit={initializeDatabase} useSuspense>
         <SettingsProvider>
+          <DashboardMaterials>
           <ThemeProvider value={navigationTheme}>
-            <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+            <StatusBar style="light" />
             <Stack
               screenOptions={{
                 headerStyle: { backgroundColor: colors.background },
-                headerTintColor: colors.text,
+                headerTintColor: colors.action,
                 headerShadowVisible: false,
                 headerBackButtonDisplayMode: 'minimal',
                 contentStyle: { backgroundColor: colors.background },
@@ -75,13 +76,14 @@ export default function RootLayout() {
                 name="workout/active"
                 options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
               />
-              <Stack.Screen name="workout/add-exercise" options={{ title: 'Add exercise', presentation: 'modal' }} />
+              <Stack.Screen name="workout/add-exercise" options={{ headerShown: false, presentation: 'modal' }} />
               <Stack.Screen name="workout/[id]" options={{ title: '' }} />
               <Stack.Screen name="body/measure" options={{ title: 'Log measurements', presentation: 'modal' }} />
               <Stack.Screen name="body/photo/[id]" options={{ title: '' }} />
               <Stack.Screen name="settings" options={{ title: 'Settings' }} />
             </Stack>
           </ThemeProvider>
+          </DashboardMaterials>
         </SettingsProvider>
       </SQLiteProvider>
     </Suspense>

@@ -1,3 +1,4 @@
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
 import { ElapsedClock } from '@/components/active-workout-card';
 import { AppText, Button, Divider, EmptyState, Icon, IconButton, Icons } from '@/components/ui/primitives';
 import { workoutTitle } from '@/components/workout-row';
@@ -27,9 +28,14 @@ import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DEFAULT_REST_SECONDS = 90;
+
+function leaveWorkout() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
 
 export default function ActiveWorkoutScreen() {
   const db = useSQLiteContext();
@@ -73,10 +79,7 @@ export default function ActiveWorkoutScreen() {
 
   if (data && !workout) {
     return (
-      <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
-        <View style={styles.topBar}>
-          <IconButton icon={Icons.close} label="Close" onPress={() => router.back()} />
-        </View>
+      <DashboardSurface><SafeAreaView style={styles.flex}>
         <EmptyState
           title="No workout in progress"
           body="Start one and add exercises as you go."
@@ -88,21 +91,13 @@ export default function ActiveWorkoutScreen() {
             />
           }
         />
-      </SafeAreaView>
+        <Button kind="secondary" label="Back" onPress={leaveWorkout} />
+      </SafeAreaView></DashboardSurface>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: theme.background }]}>
-      <View style={styles.topBar}>
-        <View style={styles.topBarSide}>
-          <IconButton icon={Icons.chevronLeft} label="Minimise workout" onPress={() => router.back()} />
-        </View>
-        {workout && <ElapsedClock since={workout.started_at} size={24} />}
-        <View style={[styles.topBarSide, styles.topBarEnd]}>
-          <Button label="End" onPress={actions.end} loading={actions.busy} style={styles.endButton} />
-        </View>
-      </View>
+    <DashboardSurface><SafeAreaView style={styles.flex}>
       {actions.error && <AppText color="danger" style={styles.actionError}>{actions.error}</AppText>}
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -165,7 +160,12 @@ export default function ActiveWorkoutScreen() {
       </KeyboardAvoidingView>
 
       {restEndsAt !== null && <RestTimer endsAt={restEndsAt} onChange={setRestEndsAt} />}
-    </SafeAreaView>
+      <View style={styles.controls}>
+        <Button kind="secondary" label="Back" onPress={leaveWorkout} />
+        {workout && <ElapsedClock since={workout.started_at} size={24} />}
+        {workout && <Button label="End" onPress={actions.end} loading={actions.busy} style={styles.endButton} />}
+      </View>
+    </SafeAreaView></DashboardSurface>
   );
 }
 
@@ -395,7 +395,6 @@ function SetRow({
 
 function RestTimer({ endsAt, onChange }: { endsAt: number, onChange: (endsAt: number | null) => void }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const [now, setNow] = useState(() => Date.now());
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
 
@@ -412,7 +411,7 @@ function RestTimer({ endsAt, onChange }: { endsAt: number, onChange: (endsAt: nu
   }, [remaining, onChange]);
 
   return (
-    <View style={[styles.rest, { backgroundColor: theme.backgroundSelected, bottom: insets.bottom + Spacing.two }]}>
+    <View style={[styles.rest, { backgroundColor: theme.backgroundSelected }]}>
       <Icon name={Icons.timer} size={18} color={theme.textSecondary} />
       <AppText style={styles.restClock}>{formatDuration(remaining)}</AppText>
       <View style={styles.flex} />
@@ -427,20 +426,13 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  topBar: {
+  controls: {
+    backgroundColor: '#222624',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: Layout.gutter - Layout.iconInset,
-    paddingRight: Layout.gutter,
-    paddingVertical: Spacing.one,
-  },
-  topBarSide: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  topBarEnd: {
-    alignItems: 'flex-end',
+    paddingHorizontal: Layout.gutter,
+    paddingVertical: Spacing.two,
   },
   endButton: {
     minHeight: Layout.touch,
@@ -465,6 +457,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   block: {
+    backgroundColor: '#222624',
+    borderRadius: Radius.medium,
+    padding: Spacing.two,
     gap: 12,
   },
   blockHeader: {
@@ -540,9 +535,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   rest: {
-    position: 'absolute',
-    left: Layout.gutter,
-    right: Layout.gutter,
+    marginHorizontal: Layout.gutter,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,

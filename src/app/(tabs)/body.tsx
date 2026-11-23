@@ -93,7 +93,7 @@ export default function BodyScreen() {
 
   return (
     <Screen title="Body" onRefresh={reload}>
-      <View style={styles.row}>
+      <Panel style={styles.row}>
         <Stat
           value={weight.latest !== null ? formatNumber(kgToDisplay(weight.latest, units)) : '–'}
           unit={weightLabel(units)}
@@ -106,16 +106,16 @@ export default function BodyScreen() {
           unit="%"
           label={bodyFat.latest !== null && bodyFat.prior !== null ? `${signed(bodyFat.latest - bodyFat.prior)} since last` : 'body fat'}
         />
-      </View>
+      </Panel>
 
       {hasTrend && (
         <Panel style={{ gap: 12 }}>
           <AppText variant="caption" color="textSecondary">Last 90 days</AppText>
-          <LineChart values={trend} labels={trendLabels} color={theme.text} format={(value) => formatNumber(value)} />
+          <LineChart values={trend} labels={trendLabels} color={theme.action} format={(value) => formatNumber(value)} />
         </Panel>
       )}
 
-      <View style={styles.grid}>
+      <Panel style={styles.grid}>
         {circumferenceFields.map(({ key, label }) => {
           const value = latestTwo(measurements, key);
           return (
@@ -130,7 +130,7 @@ export default function BodyScreen() {
             </View>
           );
         })}
-      </View>
+      </Panel>
 
       <Button label="Log measurements" icon={Icons.ruler} onPress={() => router.push('/body/measure')} />
 
