@@ -10,10 +10,10 @@ export async function getExercises(
 ): Promise<Exercise[]> {
     const results = await db.getAllAsync<Exercise>(
         `SELECT * FROM exercises
-         WHERE name LIKE ? AND (? IS NULL OR category = ?)
-         ORDER BY name
-         LIMIT 60`,
-        [`%${search}%`, category, category]
+         WHERE (? IS NULL OR category = ?)
+           AND (? = '' OR name LIKE ? OR equipment LIKE ? OR target LIKE ? OR muscle_group LIKE ? OR body_part LIKE ?)
+         ORDER BY name`,
+        [category, category, search, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`]
     );
     return results;
 }

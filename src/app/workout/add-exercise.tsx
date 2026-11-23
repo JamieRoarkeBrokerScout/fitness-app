@@ -1,11 +1,13 @@
 import { AppText, Button, Chip, Divider, Icon, Icons } from '@/components/ui/primitives';
 import { Plate, Radius, Spacing, Layout } from '@/constants/theme';
 import { getExerciseCategories, getExercises } from '@/database/exerciseQueries';
+import exerciseImages from '@/database/exerciseImages';
 import { addExerciseToWorkout, getRecentExercises } from '@/database/workoutQueries';
 import { useTheme } from '@/hooks/use-theme';
 import { Exercise } from '@/types/exercises';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -137,6 +139,13 @@ export default function AddExerciseScreen() {
               accessibilityState={{ checked: isSelected }}
               onPress={() => toggle(item.id)}
               style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
+              <Image
+                source={exerciseImages[item.image.split('/').pop()?.replace(/\.jpg$/i, '') ?? '']}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                style={[styles.exerciseImage, { backgroundColor: theme.backgroundElement }]}
+                accessibilityLabel={`${item.name} exercise demonstration`}
+              />
               <View style={styles.flex}>
                 <AppText variant="bodyStrong" style={styles.capitalize}>{item.name}</AppText>
                 <AppText variant="caption" color="textSecondary" style={styles.capitalize}>
@@ -210,6 +219,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     gap: Spacing.three,
+  },
+  exerciseImage: {
+    width: 58,
+    height: 58,
+    borderRadius: Radius.small,
   },
   listHeader: {
     paddingBottom: Spacing.one,
