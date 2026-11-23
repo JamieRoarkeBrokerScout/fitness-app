@@ -1,12 +1,19 @@
 import { AppText, Button, Panel } from '@/components/ui/primitives';
 import { getWhoopSampleCount, upsertWhoopSample } from '@/database/healthQueries';
-import { BandCandidate, connectToWhoopBand, disconnectWhoopBand, scanForWhoopBands, stopWhoopScan } from '@/lib/whoop/bluetooth';
+import { BandCandidate, connectToWhoopBand, disconnectWhoopBand, hasWhoopBluetooth, scanForWhoopBands, stopWhoopScan } from '@/lib/whoop/bluetooth';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Device, Subscription } from 'react-native-ble-plx';
 
 export function WhoopBandPanel() {
+  if (!hasWhoopBluetooth) {
+    return <AppText color="textSecondary">To connect your band, install a development build of this app that includes Bluetooth support.</AppText>;
+  }
+  return <BluetoothBandPanel />;
+}
+
+function BluetoothBandPanel() {
   const db = useSQLiteContext();
   const [bands, setBands] = useState<BandCandidate[]>([]);
   const [scanning, setScanning] = useState(false);

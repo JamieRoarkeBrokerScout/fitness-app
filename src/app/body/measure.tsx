@@ -1,4 +1,5 @@
-import { AppText, Button, Field } from '@/components/ui/primitives';
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
+import { AppText, Button, Field, Panel } from '@/components/ui/primitives';
 import { MaxContentWidth, Spacing, Layout } from '@/constants/theme';
 import { addMeasurement } from '@/database/bodyQueries';
 import { useSettings } from '@/hooks/use-settings';
@@ -57,13 +58,14 @@ export default function MeasureScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <DashboardSurface><KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <AppText color="textSecondary">Fill in what you measured today. Blank fields are skipped.</AppText>
-        <View style={styles.row}>
+        <Panel style={styles.row}>
           <Field label="Bodyweight" suffix={weightLabel(units)} value={weight} onChangeText={setWeight} keyboardType="decimal-pad" autoFocus />
           <Field label="Body fat" suffix="%" value={bodyFat} onChangeText={setBodyFat} keyboardType="decimal-pad" />
-        </View>
+        </Panel>
+        <Panel style={{ gap: Spacing.three }}>
         {[0, 2, 4].map((start) => (
           <View key={start} style={styles.row}>
             {circumferenceFields.slice(start, start + 2).map(({ key, label }) => (
@@ -78,11 +80,12 @@ export default function MeasureScreen() {
             ))}
           </View>
         ))}
+        </Panel>
         <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="Morning, before breakfast" />
         {error && <AppText color="danger">{error}</AppText>}
         <Button label="Save measurements" onPress={handleSave} loading={saving} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingView></DashboardSurface>
   );
 }
 

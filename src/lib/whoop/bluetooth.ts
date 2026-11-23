@@ -1,5 +1,5 @@
 import { BleManager, Device, Subscription } from 'react-native-ble-plx';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { buildWhoop4Command, historicalSampleFromWhoop4Packet, Whoop4FrameBuffer, Whoop4Sample } from './whoop4-protocol';
 
 export const WHOOP_SERVICE_UUIDS = [
@@ -17,7 +17,13 @@ const WHOOP4_COMMAND_WRITE = '61080002-8d6d-82b8-614a-1c8cb0f8dcc6';
 const WHOOP4_COMMAND_NOTIFY = '61080003-8d6d-82b8-614a-1c8cb0f8dcc6';
 const WHOOP4_DATA_NOTIFY = '61080005-8d6d-82b8-614a-1c8cb0f8dcc6';
 
-export const whoopBleManager = new BleManager();
+export const hasWhoopBluetooth = NativeModules.BlePlx != null;
+let manager: BleManager | undefined;
+
+function getManager() {
+  if (!hasWhoopBluetooth) throw new Error('This build does not include WHOOP Bluetooth support.');
+  return manager ??= new BleManager();
+}
 
 export interface BandCandidate {
   id: string;
@@ -39,6 +45,7 @@ export async function scanForWhoopBands(
   onBand: (band: BandCandidate) => void,
   onError: (message: string) => void,
 ) {
+  const whoopBleManager = getManager();
   const granted = await requestBluetoothPermissions();
   if (!granted) throw new Error('Bluetooth permission is required to scan for your band.');
 
@@ -61,7 +68,7 @@ export async function scanForWhoopBands(
 }
 
 export function stopWhoopScan() {
-  whoopBleManager.stopDeviceScan();
+  void manager?.stopDeviceScan();
 }
 
 export async function connectToWhoopBand(
@@ -72,6 +79,7 @@ export async function connectToWhoopBand(
   onHistoricalSample: (sample: Whoop4Sample) => Promise<void>,
   onSyncStatus: (status: string) => void,
 ): Promise<{ device: Device, subscriptions: Subscription[] }> {
+  const whoopBleManager = getManager();
   const device = await whoopBleManager.connectToDevice(id, { timeout: 15_000 });
   await device.discoverAllServicesAndCharacteristics();
 
@@ -171,7 +179,7 @@ export async function connectToWhoopBand(
 
 export async function disconnectWhoopBand(id: string, subscriptions: Subscription[] = []) {
   subscriptions.forEach((subscription) => subscription.remove());
-  await whoopBleManager.cancelDeviceConnection(id).catch(() => undefined);
+  await manager?.cancelDeviceConnection(id).catch(() => undefined);
 }
 
 function firstByte(value: string | null) {

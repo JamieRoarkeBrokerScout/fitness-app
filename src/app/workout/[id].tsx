@@ -1,3 +1,4 @@
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
 import { AppText, Button, Divider, Icons, Panel, Stat } from '@/components/ui/primitives';
 import { workoutTitle } from '@/components/workout-row';
 import { Display, Layout, MaxContentWidth, Plate, Spacing } from '@/constants/theme';
@@ -58,7 +59,7 @@ export default function WorkoutDetailScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <DashboardSurface><ScrollView contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: justFinished ? 'Workout saved' : '' }} />
       <View>
         <AppText variant="caption" color="textSecondary">
@@ -68,11 +69,11 @@ export default function WorkoutDetailScreen() {
         <AppText variant="title">{workoutTitle(workout)}</AppText>
       </View>
 
-      <View style={styles.row}>
+      <Panel style={styles.row}>
         <Stat value={formatHoursMinutes(minutes)} label="duration" />
         <Stat value={String(sets.length)} label={sets.length === 1 ? 'set' : 'sets'} />
         <Stat value={formatVolume(volume, units)} unit={weightLabel(units)} label="volume" />
-      </View>
+      </Panel>
 
       {whoop && (
         <Panel style={styles.row}>
@@ -101,7 +102,7 @@ export default function WorkoutDetailScreen() {
       {entries.map((entry) => {
         const cardio = isCardio(entry.category);
         return (
-          <View key={entry.id} style={styles.entry}>
+          <Panel key={entry.id} style={styles.entry}>
             <AppText variant="heading" style={styles.capitalize}>{entry.name}</AppText>
             {entry.sets.map((set) => (
               <View key={set.id} style={styles.setLine}>
@@ -118,12 +119,12 @@ export default function WorkoutDetailScreen() {
             <View style={styles.entryDivider}>
               <Divider />
             </View>
-          </View>
+          </Panel>
         );
       })}
 
       <Button kind="danger" label="Delete workout" onPress={handleDelete} />
-    </ScrollView>
+    </ScrollView></DashboardSurface>
   );
 }
 

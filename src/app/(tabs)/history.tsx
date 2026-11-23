@@ -1,5 +1,5 @@
 import { ActiveWorkoutCard } from '@/components/active-workout-card';
-import { AppText, Button, Divider, EmptyState, Icons, SectionHeader } from '@/components/ui/primitives';
+import { AppText, Button, Divider, EmptyState, Icons, Panel, SectionHeader } from '@/components/ui/primitives';
 import { Screen } from '@/components/ui/screen';
 import { WorkoutRow } from '@/components/workout-row';
 import { getActiveWorkout, getWorkoutSummaries } from '@/database/workoutQueries';
@@ -45,7 +45,7 @@ export default function HistoryScreen() {
       )}
 
       {months.map((month) => (
-        <View key={month.label} style={styles.month}>
+        <Panel key={month.label} style={styles.month}>
           <SectionHeader
             title={month.label}
             action={<AppText variant="caption" color="textSecondary">{month.workouts.length} {month.workouts.length === 1 ? 'workout' : 'workouts'}</AppText>}
@@ -56,7 +56,7 @@ export default function HistoryScreen() {
               <WorkoutRow workout={workout} />
             </View>
           ))}
-        </View>
+        </Panel>
       ))}
     </Screen>
   );

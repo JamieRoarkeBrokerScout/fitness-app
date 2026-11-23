@@ -1,4 +1,5 @@
-import { AppText, Button, Divider, Icons, Segmented } from '@/components/ui/primitives';
+import { DashboardSurface } from '@/components/ui/dashboard-surface';
+import { AppText, Button, Panel, Icons, Segmented } from '@/components/ui/primitives';
 import { WhoopBandPanel } from '@/components/whoop-band-panel';
 import { MaxContentWidth, Spacing, Layout } from '@/constants/theme';
 import { getNutritionStats } from '@/database/healthQueries';
@@ -9,7 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 function formatDay(key: string) {
   return new Date(`${key}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -52,8 +53,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.section}>
+    <DashboardSurface><ScrollView contentContainerStyle={styles.content}>
+      <Panel style={styles.section}>
         <AppText variant="heading">Units</AppText>
         <Segmented
           options={[
@@ -63,18 +64,16 @@ export default function SettingsScreen() {
           value={units}
           onChange={setUnits}
         />
-      </View>
+      </Panel>
 
-      <Divider />
 
-      <View style={styles.section}>
+      <Panel style={styles.section}>
         <AppText variant="heading">WHOOP band · direct Bluetooth</AppText>
         <WhoopBandPanel />
-      </View>
+      </Panel>
 
-      <Divider />
 
-      <View style={styles.section}>
+      <Panel style={styles.section}>
         <AppText variant="heading">MyFitnessPal</AppText>
         <AppText color="textSecondary">
           MyFitnessPal doesn’t let other apps connect directly, so import your data from its export instead:
@@ -94,8 +93,8 @@ export default function SettingsScreen() {
         <AppText variant="caption" color="textSecondary">
           Weigh-ins are read in the unit chosen above ({units}). Importing the same file again updates days instead of duplicating them.
         </AppText>
-      </View>
-    </ScrollView>
+      </Panel>
+    </ScrollView></DashboardSurface>
   );
 }
 
@@ -107,7 +106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.gutter,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.six,
-    gap: Spacing.five - 4,
+    gap: Spacing.three,
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
