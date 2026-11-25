@@ -1,4 +1,4 @@
-import { BleManager, Device, Subscription } from 'react-native-ble-plx';
+import { BleManager, Device, State, Subscription } from 'react-native-ble-plx';
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { buildWhoop4Command, historicalSampleFromWhoop4Packet, Whoop4FrameBuffer, Whoop4Sample } from './whoop4-protocol';
 
@@ -27,6 +27,37 @@ function getManager() {
   return manager ??= new BleManager();
 }
 
+/**
+ * The native manager starts in `Unknown` (and on iOS stays there until the user
+ * answers the Bluetooth permission prompt), so scanning/connecting immediately
+ * fails with "BluetoothLE is in unknown state". Wait for `PoweredOn` first.
+ */
+async function waitForBluetoothReady(whoopBleManager: BleManager, timeoutMs = 15_000) {
+  const current = await whoopBleManager.state();
+  if (current === State.PoweredOn) return;
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let subscription: Subscription | undefined;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      subscription?.remove();
+      if (error) reject(error);
+      else resolve();
+    };
+    const timer = setTimeout(() => finish(new Error('Bluetooth is not ready. Make sure Bluetooth is on and try again.')), timeoutMs);
+    subscription = whoopBleManager.onStateChange((state) => {
+      if (state === State.PoweredOn) finish();
+      else if (state === State.PoweredOff) finish(new Error('Bluetooth is turned off. Turn it on in Control Center or Settings, then try again.'));
+      else if (state === State.Unauthorized) finish(new Error('Bluetooth permission is off for this app. Enable it in Settings › Privacy & Security › Bluetooth.'));
+      else if (state === State.Unsupported) finish(new Error('This device does not support Bluetooth Low Energy.'));
+      // Unknown / Resetting: keep waiting.
+    }, true);
+  });
+}
+
 export interface BandCandidate {
   id: string;
   name: string;
@@ -50,6 +81,7 @@ export async function scanForWhoopBands(
   const whoopBleManager = getManager();
   const granted = await requestBluetoothPermissions();
   if (!granted) throw new Error('Bluetooth permission is required to scan for your band.');
+  await waitForBluetoothReady(whoopBleManager);
 
   await whoopBleManager.startDeviceScan(WHOOP_SERVICE_UUIDS.slice(0, 2), { allowDuplicates: false }, (error, device) => {
     if (error) {
@@ -82,6 +114,7 @@ export async function connectToWhoopBand(
   onSyncStatus: (status: string) => void,
 ): Promise<{ device: Device, subscriptions: Subscription[], requestBattery: () => Promise<void> }> {
   const whoopBleManager = getManager();
+  await waitForBluetoothReady(whoopBleManager);
   const device = await whoopBleManager.connectToDevice(id, { timeout: 15_000 });
   await device.discoverAllServicesAndCharacteristics();
 
