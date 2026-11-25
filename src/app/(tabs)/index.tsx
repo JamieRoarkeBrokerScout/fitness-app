@@ -8,12 +8,14 @@ import { getActiveWorkout, getWorkoutSummaries } from '@/database/workoutQueries
 import { useFocusQuery } from '@/hooks/use-focus-query';
 import { useSettings } from '@/hooks/use-settings';
 import { useWorkoutActions } from '@/hooks/use-workout-actions';
+import { formatReadingAge, loadLastWhoopBattery, useWhoopConnection } from '@/lib/whoop/connection-state';
 import { addDays, dateKey, daysIn, formatHoursMinutes, periodContaining } from '@/lib/dates';
 import { formatVolume, weightLabel } from '@/lib/units';
 import { GlassView } from 'expo-glass-effect';
+import { useSQLiteContext } from 'expo-sqlite';
 import { router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   ImageBackground,
   Pressable,
@@ -76,8 +78,33 @@ function Action({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
+function BandStatus() {
+  const db = useSQLiteContext();
+  const { band, battery, batteryAt } = useWhoopConnection();
+  useEffect(() => { void loadLastWhoopBattery(db); }, [db]);
+  if (!band && battery === null) return null;
+  const low = battery !== null && battery <= 20;
+  return (
+    <View style={styles.bandStatus}>
+      <View style={[styles.dot, { backgroundColor: band ? '#7BD88F' : muted }]} />
+      <AppText color={muted} variant="caption">
+        {band ? 'Band connected' : 'Band not connected'}
+      </AppText>
+      <AppText color={low ? '#FF8A7A' : ink} variant="bodyStrong" style={styles.battery}>
+        {battery === null ? 'Battery —' : `Battery ${battery}%`}
+      </AppText>
+      {!band && batteryAt !== null && (
+        <AppText color={muted} variant="caption">
+          {formatReadingAge(batteryAt)}
+        </AppText>
+      )}
+    </View>
+  );
+}
+
 export default function TodayScreen() {
   const pathname = usePathname();
+  const whoopBand = useWhoopConnection().band;
   const { units } = useSettings(),
     actions = useWorkoutActions();
   const { width, fontScale } = useWindowDimensions();
@@ -203,6 +230,7 @@ export default function TodayScreen() {
             </View>
             <View style={wide && styles.column}>
               <Card title="WHOOP overview" detail={day?.date}>
+                <BandStatus />
                 <View style={styles.pulse}>
                   <View style={styles.fill}>
                     <AppText color={muted} variant="caption">
@@ -237,7 +265,7 @@ export default function TodayScreen() {
                     value={day?.sleep_ms != null ? formatHoursMinutes(day.sleep_ms / 60000) : '—'}
                   />
                 </View>
-                <Action label="Connect WHOOP" onPress={() => router.push('/settings')} />
+                <Action label={whoopBand ? 'Manage WHOOP' : 'Connect WHOOP'} onPress={() => router.push('/settings')} />
               </Card>
             </View>
           </View>
@@ -319,6 +347,9 @@ export default function TodayScreen() {
   );
 }
 const styles = StyleSheet.create({
+  bandStatus: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  battery: { marginLeft: 'auto' },
   background: { flex: 1, backgroundColor: '#171A19' },
   shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(12,15,14,.53)' },
   fill: { flex: 1 },

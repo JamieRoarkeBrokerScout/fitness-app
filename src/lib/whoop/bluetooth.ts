@@ -16,6 +16,8 @@ const WHOOP4_COMMAND_SERVICE = '61080001-8d6d-82b8-614a-1c8cb0f8dcc6';
 const WHOOP4_COMMAND_WRITE = '61080002-8d6d-82b8-614a-1c8cb0f8dcc6';
 const WHOOP4_COMMAND_NOTIFY = '61080003-8d6d-82b8-614a-1c8cb0f8dcc6';
 const WHOOP4_DATA_NOTIFY = '61080005-8d6d-82b8-614a-1c8cb0f8dcc6';
+const WHOOP4_COMMAND_RESPONSE = 0x24;
+const WHOOP4_GET_BATTERY_LEVEL = 0x1a;
 
 export const hasWhoopBluetooth = NativeModules.BlePlx != null;
 let manager: BleManager | undefined;
@@ -78,20 +80,49 @@ export async function connectToWhoopBand(
   family: BandCandidate['family'],
   onHistoricalSample: (sample: Whoop4Sample) => Promise<void>,
   onSyncStatus: (status: string) => void,
-): Promise<{ device: Device, subscriptions: Subscription[] }> {
+): Promise<{ device: Device, subscriptions: Subscription[], requestBattery: () => Promise<void> }> {
   const whoopBleManager = getManager();
   const device = await whoopBleManager.connectToDevice(id, { timeout: 15_000 });
   await device.discoverAllServicesAndCharacteristics();
 
-  try {
-    const battery = await whoopBleManager.readCharacteristicForDevice(device.id, BATTERY_SERVICE, BATTERY_LEVEL);
-    const value = firstByte(battery.value);
-    if (value !== null) onBattery(value);
-  } catch {
-    // The WHOOP vendor service may connect even when the optional standard battery service is hidden.
-  }
+  const writeWhoop4 = (command: number, data: number[] = []) => whoopBleManager.writeCharacteristicWithResponseForDevice(
+    device.id,
+    WHOOP4_COMMAND_SERVICE,
+    WHOOP4_COMMAND_WRITE,
+    toBase64(buildWhoop4Command(command, data)),
+  );
+
+  // WHOOP 4's standard 0x180F battery characteristic reportedly always reads 100%,
+  // so it is polled with the vendor GET_BATTERY_LEVEL command instead (answer
+  // arrives on the command-notify stream below). Other bands use 0x180F.
+  const requestBattery = family === 'WHOOP 4'
+    ? async () => { await writeWhoop4(WHOOP4_GET_BATTERY_LEVEL).catch(() => undefined); }
+    : async () => {
+      try {
+        const battery = await whoopBleManager.readCharacteristicForDevice(device.id, BATTERY_SERVICE, BATTERY_LEVEL);
+        const value = firstByte(battery.value);
+        if (value !== null && value <= 100) onBattery(value);
+      } catch {
+        // The optional standard battery service may be hidden.
+      }
+    };
 
   const subscriptions: Subscription[] = [];
+  if (family !== 'WHOOP 4') {
+    try {
+      // Battery Level supports notifications on most bands; fall back to polling if not.
+      subscriptions.push(whoopBleManager.monitorCharacteristicForDevice(
+        device.id, BATTERY_SERVICE, BATTERY_LEVEL,
+        (error, characteristic) => {
+          const value = error ? null : firstByte(characteristic?.value ?? null);
+          if (value !== null && value <= 100) onBattery(value);
+        },
+      ));
+    } catch {
+      // Polling below still covers bands without battery notifications.
+    }
+    await requestBattery();
+  }
   try {
     const heartRateSubscription = whoopBleManager.monitorCharacteristicForDevice(
       device.id,
@@ -123,7 +154,10 @@ export async function connectToWhoopBand(
               await onHistoricalSample(sample);
               return;
             }
-            if (packet.type === 0x31 && packet.command === 3) {
+            if (packet.type === WHOOP4_COMMAND_RESPONSE && packet.command === WHOOP4_GET_BATTERY_LEVEL) {
+              const percent = whoop4BatteryPercent(packet.data);
+              if (percent !== null) onBattery(percent);
+            } else if (packet.type === 0x31 && packet.command === 3) {
               onSyncStatus('WHOOP 4 history sync complete');
             } else if (packet.type === 0x31 && packet.command === 2 && packet.data.length >= 14) {
               const trimOffset = readUint32LE(packet.data, 10);
@@ -153,20 +187,11 @@ export async function connectToWhoopBand(
       // The WHOOP 4 reference client sets the strap RTC before requesting history.
       // Its historical records are then saved locally before each batch is acknowledged.
       const now = Math.floor(Date.now() / 1000);
-      await whoopBleManager.writeCharacteristicWithResponseForDevice(
-        device.id,
-        WHOOP4_COMMAND_SERVICE,
-        WHOOP4_COMMAND_WRITE,
-        toBase64(buildWhoop4Command(0x0a, [...uint32LE(now), 1])),
-      );
+      await writeWhoop4(0x0a, [...uint32LE(now), 1]);
       await new Promise((resolve) => setTimeout(resolve, 300));
+      await requestBattery();
       onSyncStatus('Downloading WHOOP 4 history…');
-      await whoopBleManager.writeCharacteristicWithResponseForDevice(
-        device.id,
-        WHOOP4_COMMAND_SERVICE,
-        WHOOP4_COMMAND_WRITE,
-        toBase64(buildWhoop4Command(0x16, [0])),
-      );
+      await writeWhoop4(0x16, [0]);
     } catch (error) {
       onSyncStatus(error instanceof Error ? `History sync unavailable: ${error.message}` : 'History sync unavailable');
     }
@@ -174,7 +199,18 @@ export async function connectToWhoopBand(
     onSyncStatus('This band generation currently provides live heart rate only.');
   }
 
-  return { device, subscriptions };
+  return { device, subscriptions, requestBattery };
+}
+
+/**
+ * GET_BATTERY_LEVEL response: u16 LE tenths-of-a-percent at frame-payload
+ * bytes [5:7] (type, seq, cmd, then data[0..1], data[2..3]) — per OpenStrap's
+ * public protocol notes. Values outside 0–100% are rejected as misparsed.
+ */
+function whoop4BatteryPercent(data: number[]) {
+  if (data.length < 4) return null;
+  const percent = (data[2] | (data[3] << 8)) / 10;
+  return percent >= 0 && percent <= 100 ? Math.round(percent) : null;
 }
 
 export async function disconnectWhoopBand(id: string, subscriptions: Subscription[] = []) {
